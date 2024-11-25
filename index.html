@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radyjko</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: black;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        h1 {
+            color: white;
+        }
+        #radioList {
+            width: 80%;
+            max-width: 600px;
+            height: 800px;
+            overflow-y: scroll;
+            margin: 20px 0;
+            border: 1px solid #ccc;
+            padding: 10px;
+            background-color: black;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .station {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: black;
+	    color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s;
+        }
+        .station:hover {
+            background-color: #2F4F4F;
+        }
+        .station button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .station button:hover {
+            background-color: #45a049;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80%;
+            max-width: 600px;
+        }
+        #playPauseButton {
+            padding: 10px 20px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+            background-color: #008CBA;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #playPauseButton:hover {
+            background-color: #007bb5;
+        }
+        #volumeControl {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Radyjko </h1>
+    <div id="radioList"></div>
+    <div id="controls">
+        <button id="playPauseButton">Graj</button>
+        <input type="range" id="volumeControl" min="0" max="1" step="0.01" value="1">
+    </div>
+    <audio id="audioPlayer" controls style="display: none;"></audio>
+
+    <script src="script.js"></script>
+</body>
+</html>
