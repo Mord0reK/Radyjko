@@ -2,6 +2,6 @@
 
 pip install flask waitress
 
-python3 "%USERPROFILE%\Desktop\Radyjko\main.py"
+python3 "%USERPROFILE%\Desktop\Radyjko-main\main.py"
 
 pause
