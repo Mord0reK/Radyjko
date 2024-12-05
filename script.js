@@ -69,10 +69,6 @@ function playStation(station) {
             title: station.name,
             artist: '',
             album: '',
-            artwork: [
-                // Opcjonalnie dodaj ścieżkę do obrazka stacji
-                { src: 'ścieżka/do/obrazka.png', sizes: '512x512', type: 'image/png' }
-            ]
         });
     }
 }
