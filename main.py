@@ -1,9 +1,8 @@
 import subprocess
 import json
 import threading
-from flask import Flask, Response, stream_with_context
-import http.server
-import socketserver
+from flask import Flask, Response, stream_with_context, send_from_directory
+from waitress import serve
 import os
 
 # Konfiguracja
@@ -11,7 +10,6 @@ STATION_IDS = [57, 207, 160, 163, 164, 169, 165, 166]  # Lista ID stacji
 START_PORT = 5000  # Numer portu startowego dla strumieni
 OUTPUT_FILE = "url.json"  # Plik do zapisu URL strumieni
 WWW_PORT = 8000  # Port dla serwera WWW
-
 
 # === Funkcja 1: Generowanie pliku url.json ===
 def create_url(station_id):
@@ -48,7 +46,6 @@ def generate_url_file(station_ids, start_port, output_file):
 
     print(f"Dane zapisane do pliku: {output_file}")
 
-
 # === Funkcja 2: Uruchamianie serwerów strumieniowych ===
 def load_streams_from_file(file_path):
     with open(file_path, 'r') as file:
@@ -76,43 +73,71 @@ def run_stream_servers(file_path):
 
     for stream in streams:
         app = create_flask_app(stream["url"])
-        threading.Thread(target=lambda: app.run(host='0.0.0.0', port=stream["port"]), daemon=True).start()
+        threading.Thread(
+            target=lambda: serve(app, host='0.0.0.0', port=stream["port"], threads=1),
+            daemon=True
+        ).start()
 
     print("Serwery strumieniowe uruchomione.")
 
-
 # === Funkcja 3: Uruchamianie serwera WWW ===
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=os.path.dirname(os.path.abspath(__file__)), **kwargs)
+def create_web_app():
+    # Inicjalizacja aplikacji Flask
+    app = Flask(__name__, 
+                static_url_path='', 
+                static_folder='.')
+    
+    @app.route('/')
+    def root():
+        return send_from_directory('.', 'index.html')
+        
+    @app.route('/<path:path>')
+    def send_file(path):
+        print(f"Żądanie pliku: {path}")
+        try:
+            return send_from_directory('.', path)
+        except Exception as e:
+            print(f"Błąd przy wczytywaniu {path}: {e}")
+            return f"Error: {str(e)}", 404
+            
+    # Dodajemy return app
+    return app
 
 def run_www_server(port):
-    def start_server():
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
-        with socketserver.TCPServer(("", port), Handler) as httpd:
-            print(f"Serwer WWW działa na porcie {port}")
-            httpd.serve_forever()
-
-    server_thread = threading.Thread(target=start_server, daemon=True)
+    app = create_web_app()
+    
+    server_thread = threading.Thread(
+        target=lambda: serve(
+            app, 
+            host='0.0.0.0', 
+            port=port, 
+            threads=8,
+            channel_timeout=30
+        ),
+        daemon=True
+    )
     server_thread.start()
-
-
+    print(f"Serwer WWW działa na porcie {port}")
+    
 # === Główna funkcja ===
 def main():
-    print("=== Generowanie pliku url.json ===")
-    generate_url_file(STATION_IDS, START_PORT, OUTPUT_FILE)
+    try:
+        print("=== Generowanie pliku url.json ===")
+        generate_url_file(STATION_IDS, START_PORT, OUTPUT_FILE)
 
-    print("\n=== Uruchamianie serwerów strumieniowych ===")
-    run_stream_servers(OUTPUT_FILE)
+        print("\n=== Uruchamianie serwerów strumieniowych ===")
+        run_stream_servers(OUTPUT_FILE)
 
-    print("\n=== Uruchamianie serwera WWW ===")
-    run_www_server(WWW_PORT)
+        print("\n=== Uruchamianie serwera WWW ===")
+        run_www_server(WWW_PORT)
 
-    os.system("start http://localhost:8000")
+        os.system("start http://localhost:8000")
 
-    print("\nWszystkie serwery działają. Naciśnij Enter, aby zakończyć.")
-    input()
-
+        print("\nWszystkie serwery działają. Naciśnij Enter, aby zakończyć.")
+        input()
+    except Exception as e:
+        print(f"Wystąpił błąd: {e}")
+        input("\nNaciśnij Enter, aby zakończyć.")
 
 # Uruchomienie programu
 if __name__ == "__main__":

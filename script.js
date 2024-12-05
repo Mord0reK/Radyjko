@@ -1,66 +1,84 @@
-// Elementy HTML
 const radioList = document.getElementById("radioList");
 const audioPlayer = document.getElementById("audioPlayer");
 const playPauseButton = document.getElementById("playPauseButton");
+const previousButton = document.getElementById("previousButton");
+const nextButton = document.getElementById("nextButton");
 const volumeControl = document.getElementById("volumeControl");
+const currentStationDisplay = document.getElementById("currentStation");
 
-// Aktualna stacja
+// Stan aplikacji
 let currentStation = null;
+let stations = [];
+let currentStationIndex = -1;
 
 // Funkcja do załadowania pliku Radia.txt
 async function loadStations() {
     try {
-        const response = await fetch('Radia.txt'); // Załaduj plik Radia.txt
-        const text = await response.text(); // Pobierz tekst
+        const response = await fetch('Radia.txt');
+        const text = await response.text();
 
-        // Przetwarzanie tekstu
-        const stations = text.split('\n').map(line => {
-            const urlMatch = line.match(/URL:\s*(https?.*?)(?=\s*;)/); // Wyszukaj URL
-            const nameMatch = line.match(/Nazwa:\s*(.*?)(?=\s*$)/); // Wyszukaj nazwę stacji
+        stations = text.split('\n')
+            .map(line => {
+                const urlMatch = line.match(/URL:\s*(https?.*?)(?=\s*;)/);
+                const nameMatch = line.match(/Nazwa:\s*(.*?)(?=\s*$)/);
 
-            if (urlMatch && nameMatch) {
-                return { name: nameMatch[1], url: urlMatch[1] };
-            }
-            return null; // Jeśli linia nie pasuje do wzorca, pomijamy ją
-        }).filter(station => station !== null); // Usuń puste wpisy
+                if (urlMatch && nameMatch) {
+                    return { name: nameMatch[1], url: urlMatch[1] };
+                }
+                return null;
+            })
+            .filter(station => station !== null);
 
-        // Generowanie listy stacji
-        stations.forEach(station => {
-            // Tworzenie kontenera stacji
-            const stationElement = document.createElement("div");
-            stationElement.className = "station";
-
-            // Nazwa stacji
-            const stationName = document.createElement("span");
-            stationName.textContent = station.name;
-
-            // Przycisk "Graj"
-            const playButton = document.createElement("button");
-            playButton.textContent = "Graj";
-            playButton.addEventListener("click", () => {
-                playStation(station);
-            });
-
-            // Dodanie nazwy i przycisku do kontenera stacji
-            stationElement.appendChild(stationName);
-            stationElement.appendChild(playButton);
-
-            // Dodanie kontenera stacji do listy
-            radioList.appendChild(stationElement);
-        });
+        renderStations();
     } catch (error) {
         console.error("Błąd podczas ładowania pliku:", error);
     }
 }
 
-// Funkcja do odtwarzania stacji
+function renderStations() {
+    radioList.innerHTML = '';
+    stations.forEach((station, index) => {
+        const stationElement = document.createElement("div");
+        stationElement.className = "station";
+
+        const stationName = document.createElement("span");
+        stationName.textContent = station.name;
+
+        const playButton = document.createElement("button");
+        playButton.textContent = "Graj";
+        playButton.addEventListener("click", () => {
+            currentStationIndex = index;
+            playStation(station);
+        });
+
+        stationElement.appendChild(stationName);
+        stationElement.appendChild(playButton);
+        radioList.appendChild(stationElement);
+    });
+}
+
 function playStation(station) {
-    if (currentStation !== station) {
-        currentStation = station;
-        audioPlayer.src = station.url;
-        audioPlayer.play();
-        playPauseButton.textContent = "Pauza";
-    } else if (audioPlayer.paused) {
+    audioPlayer.src = station.url;
+    audioPlayer.play();
+    playPauseButton.textContent = "Pauza";
+    currentStationDisplay.textContent = "Odtwarzanie: " + station.name;
+
+    // Aktualizacja metadanych Media Session
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: station.name,
+            artist: '',
+            album: '',
+            artwork: [
+                // Opcjonalnie dodaj ścieżkę do obrazka stacji
+                { src: 'ścieżka/do/obrazka.png', sizes: '512x512', type: 'image/png' }
+            ]
+        });
+    }
+}
+
+function togglePlayPause() {
+    if (audioPlayer.paused) {
         audioPlayer.play();
         playPauseButton.textContent = "Pauza";
     } else {
@@ -69,23 +87,43 @@ function playStation(station) {
     }
 }
 
-// Obsługa przycisku Graj/Pauza
-playPauseButton.addEventListener("click", () => {
-    if (currentStation) {
-        if (audioPlayer.paused) {
-            audioPlayer.play();
-            playPauseButton.textContent = "Pauza";
-        } else {
-            audioPlayer.pause();
-            playPauseButton.textContent = "Graj";
-        }
+function playPreviousStation() {
+    if (currentStationIndex > 0) {
+        currentStationIndex--;
+        playStation(stations[currentStationIndex]);
     }
-});
+}
 
-// Obsługa regulacji głośności
+function playNextStation() {
+    if (currentStationIndex < stations.length - 1) {
+        currentStationIndex++;
+        playStation(stations[currentStationIndex]);
+    }
+}
+
+// Dodaj event listenery dla przycisków
+playPauseButton.addEventListener("click", togglePlayPause);
+previousButton.addEventListener("click", playPreviousStation);
+nextButton.addEventListener("click", playNextStation);
 volumeControl.addEventListener("input", () => {
     audioPlayer.volume = volumeControl.value;
 });
 
-// Załaduj stacje po załadowaniu strony
-window.onload = loadStations;
+// Ustawienia Media Session API
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => {
+        togglePlayPause();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+        togglePlayPause();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        playPreviousStation();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        playNextStation();
+    });
+}
+
+// Załaduj stacje radiowe
+loadStations();

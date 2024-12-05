@@ -1,7 +1,7 @@
 @echo off
 
-pip install flask
+pip install flask waitress
 
-python3 "%USERPROFILE%\Desktop\Tiry\main.py"
+python3 "%USERPROFILE%\Desktop\Radyjko\main.py"
 
 pause
