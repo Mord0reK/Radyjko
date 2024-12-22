@@ -1,9 +1,5 @@
 [
     {
-        "url": "https://stream-cdn-1.open.fm/OFM57/ngrp:standard/playlist.m3u8?t=871caf5fdfb92f40b082dd29bd7fa7ab167d0cbe177c549fe1ab4e94485021b66abfc952b81bb7f27219b718528b62cd9999fc035acfd376a2e7f6572413964a68d95c00304a37c948caa3e50d7e763894e1fa2abab603d2e884b88eac74398eca1d1f0d3b95c0c1c8419efae87b4346b8005753065f0514ed884bf948602f7218ff7c8b2577fd",
-        "port": 5000
-    },
-    {
         "url": "https://stream-cdn-1.open.fm/OFM207/ngrp:standard/playlist.m3u8?t=f92382af3dee6cef92cd603ce331297d495c84a9159db5c90bbfe4cf24367a2a64f92803c93e8842b5ad062270f03fdb2bedd5ad9b5ee62843e04330b34c2709151656ada123f3b9d775e3193e520e969b8642ee4387cfcba072e43ea6621105a8fe35c43fd416aeb10bc8cb6c0949231ef18389474ed3e05c6b592bfcaebf1938419e9b08476165cf",
         "port": 5001
     },
@@ -16,19 +12,7 @@
         "port": 5003
     },
     {
-        "url": "https://stream-cdn-1.open.fm/OFM164/ngrp:standard/playlist.m3u8?t=a8386a93bd5335c1dbe8a88f65dd27ed110f131bfc1fc49bf8793c3db42ca201ed05177ddd3033202dbc0a15f3ce3b726f4762edac096267a2f2b2499a9a2c664473cd6d8d4f6b0a3d53ca14ca4b084805eb223ae432dc6078d3fdd9a38f149f4af1b16cd7a54db52bec9d751bece10c77236afc380f0176b5c34f3e7669a1808f2587e0af317223c5",
-        "port": 5004
-    },
-    {
         "url": "https://stream-cdn-1.open.fm/OFM169/ngrp:standard/playlist.m3u8?t=36f84e872ecac3db13c1532bd7e2cba21d27f87a854c4e5120571a0350bd4ee3468e51292d1fa77fe99cf61410ac60dce294bb2a7478def3ff903f34935df5198958b3c2129d3b29822dab4e1a4dc1b58c8fc0fe31f99d8d7ad0a92e858eab144e629de712523934f23c0b06240e53b78d6ed87a7ae42188bf6e31bb94f7b75e8783be3babe715a4ba",
         "port": 5005
-    },
-    {
-        "url": "https://stream-cdn-1.open.fm/OFM165/ngrp:standard/playlist.m3u8?t=7d50da6497ed22be089fd8560f8591bedfa71ebf44a01be15323a0498aabd0c04191bb7c8ac1b5b854fc8aa40ddabc5b88f6f73c692a3666bf7a6287e281a7926b7b70226e94a232f7f5d60197658d5b211cfb5fddd822ca8eb2c36cf8bcf8bc8e9896fa96f0a2b21e96c4b478d0396de64b58a6d25251c3a0ad6d1c14cd98a62fc268cb739a84002c",
-        "port": 5006
-    },
-    {
-        "url": "https://stream-cdn-1.open.fm/OFM166/ngrp:standard/playlist.m3u8?t=0faf802299b81b2c5ac047e80c22470c7263eca77eb057a38cc93bfcb8bc4c4a71677111436ccc7989f5c5ff20d147ba9628a5136845abe8dbb04d4bf0f73cdbec553ffbf35fc271511ed29dee55f9b62039a120b905f3ed9fc5a94880c0103df3fda1e306c4f5edcda0e37e8f7c3b137eafec6a4c15faf9cd3a6c45beaeb459b33567352bb3764078",
-        "port": 5007
     }
 ]
