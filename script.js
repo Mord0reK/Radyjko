@@ -62,6 +62,7 @@ function playStation(station) {
     audioPlayer.play();
     playPauseButton.textContent = "Pauza";
     currentStationDisplay.textContent = "Odtwarzanie: " + station.name;
+document.title = "Radyjko - " + station.name;
 
     // Aktualizacja metadanych Media Session
     if ('mediaSession' in navigator) {
