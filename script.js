@@ -14,7 +14,7 @@ let currentStationIndex = -1;
 // Funkcja do załadowania pliku Radia.txt
 async function loadStations() {
     try {
-        const response = await fetch('Radia.txt');
+        const response = await fetch('Radia_Strona.txt');
         const text = await response.text();
 
         stations = text.split('\n')
