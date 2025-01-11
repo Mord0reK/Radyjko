@@ -77,7 +77,10 @@ jobs:
         with:
           name: python-app
           path: .
-
+          
+      - name: Azure Login
+        uses: Azure/login@v2.2.0
+            
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
