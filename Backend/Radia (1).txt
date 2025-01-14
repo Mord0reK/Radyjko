@@ -1,0 +1,19 @@
+URL: https://stream-cdn-1.open.fm/OFM207/ngrp:standard/playlist.m3u8; Nazwa: Open FM - Vixa
+URL: https://stream-cdn-1.open.fm/OFM160/ngrp:standard/playlist.m3u8; Nazwa: Open FM - Dance
+URL: https://stream-cdn-1.open.fm/OFM163/ngrp:standard/playlist.m3u8; Nazwa: Open FM - Do Auta
+URL: https://stream-cdn-1.open.fm/OFM169/ngrp:standard/playlist.m3u8; Nazwa: Open FM - 500 Party Hits
+URL: https://radioparty.pl:8888/djmixes; Nazwa: Radioparty - DJ Mixes
+URL: https://s2.radioparty.pl:7000/stream?nocache=5782; Nazwa: Radioparty - Kanal Glowny
+URL: https://s1.slotex.pl:7432/stream/1/?sid=1; Nazwa: Disco Party
+URL: https://waw.ic.smcdn.pl/6020-1.mp3; Nazwa: VOX FM - DJ Mix
+URL: https://ic2.smcdn.pl/3990-1.mp3; Nazwa: VOX FM
+URL: https://waw.ic.smcdn.pl/6100-1.mp3; Nazwa: VOX FM - Best Lista
+URL: https://rs6-krk2.rmfstream.pl/rmf_fm; Nazwa: RMF FM
+URL: http://31.192.216.10:8000/rmf_maxxx; Nazwa: RMF MAXX
+URL: https://rs6-krk2.rmfstream.pl/rmf_party; Nazwa: RMF Party
+URL: https://ic2.smcdn.pl/2060-1.mp3; Nazwa: ESKA Siedlce
+URL: https://n-11-23.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5; Nazwa: Radio ZET
+URL: https://zt05.cdn.eurozet.pl/ZETDAN.mp3?redirected=05/; Nazwa: Radio Zet Dance
+URL: http://zt04.cdn.eurozet.pl/ZETPAR.mp3; Nazwa: Radio Zet Party
+URL: https://waw.ic.smcdn.pl/6110-1.mp3; Nazwa: ESKA 2 - Disco Polo
+URL: https://stream.rcs.revma.com/cvswvmyewzzuv; Nazwa: Radio Disco
