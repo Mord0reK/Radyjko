@@ -15,6 +15,7 @@ const stationIDs = [
 
 let currentStationIndex = 0;
 let isPlaying = false;
+let hls = null; // Obiekt HLS.js
 
 // Funkcja generująca URL do API
 function createApiUrl(stationId) {
@@ -40,7 +41,22 @@ async function updatePlayer() {
     const streamUrl = await fetchStreamUrl(station.id);
 
     if (streamUrl) {
-        audioPlayer.src = streamUrl;
+        // Obsługa HLS (M3U8) z HLS.js
+        if (Hls.isSupported()) {
+            if (hls) {
+                hls.destroy(); // Zniszcz poprzednią instancję HLS.js
+            }
+            hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(audioPlayer);
+        } else if (audioPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native support dla HLS
+            audioPlayer.src = streamUrl;
+        } else {
+            alert("Twoja przeglądarka nie obsługuje odtwarzania tego strumienia.");
+            return;
+        }
+
         currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
         if (isPlaying) {
             audioPlayer.play();
