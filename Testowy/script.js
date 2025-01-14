@@ -46,8 +46,20 @@ function renderStations() {
 function playStation(index) {
     currentStationIndex = index;
     const station = stations[index];
-    audioPlayer.src = station.url;
-    audioPlayer.play();
+
+    if (station.url.includes(".m3u8") && Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(station.url);
+        hls.attachMedia(audioPlayer);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => audioPlayer.play());
+    } else if (audioPlayer.canPlayType("application/vnd.apple.mpegurl")) {
+        audioPlayer.src = station.url;
+        audioPlayer.play();
+    } else {
+        alert("Twoja przeglądarka nie obsługuje odtwarzania tego strumienia.");
+        return;
+    }
+
     playPauseButton.textContent = "Pauza";
     currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
     document.title = station.name;
