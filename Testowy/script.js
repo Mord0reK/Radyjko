@@ -138,40 +138,7 @@ function renderStations() {
     });
 }
 
-async function init() {
-    const path = window.location.pathname.split("/").pop(); // Pobieramy końcówkę URL
-
-    if (path) {
-        // Znajdź stację na podstawie skrótu w URL
-        const station = stations.find(s => s.shortName === path);
-        if (station) {
-            let streamUrl;
-
-            if (station.isOpenFM) {
-                // Pobierz URL z API OpenFM
-                streamUrl = await fetchOpenFMStreamUrl(station.id);
-            } else {
-                // Dla stacji z bezpośrednim URL-em
-                streamUrl = station.url;
-            }
-
-            if (streamUrl) {
-                // Przekierowanie do strumienia
-                window.location.href = streamUrl;
-                return;
-            } else {
-                alert("Nie udało się znaleźć strumienia dla tej stacji.");
-            }
-        } else {
-            alert("Nie znaleziono stacji o podanej nazwie.");
-        }
-    } else {
-        // Renderuj pełną stronę
-        renderStations();
-    }
-}
-
-init();
+renderStations();
 
 playPauseButton.onclick = togglePlayPause;
 previousButton.onclick = playPreviousStation;
