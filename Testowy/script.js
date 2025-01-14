@@ -138,6 +138,45 @@ function renderStations() {
     });
 }
 
+// Add this after the existing event listeners, just before renderStations();
+
+// Media Session API Setup
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => {
+        audioPlayer.play();
+        isPlaying = true;
+        playPauseButton.textContent = "Pauza";
+    });
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+        audioPlayer.pause();
+        isPlaying = false;
+        playPauseButton.textContent = "Graj";
+    });
+
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        playPreviousStation();
+    });
+
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        playNextStation();
+    });
+
+    // Update metadata when station changes
+    audioPlayer.addEventListener('play', () => {
+        const currentStation = stations[currentStationIndex];
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentStation.name,
+            artist: '',
+            album: ''
+        });
+        document.title = currentStation.name;
+    });
+}
+
+renderStations();
+
+
 renderStations();
 
 playPauseButton.onclick = togglePlayPause;
