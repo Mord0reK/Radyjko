@@ -1,5 +1,9 @@
 const radioList = document.getElementById("radioList");
 const audioPlayer = document.getElementById("audioPlayer");
+const playPauseButton = document.getElementById("playPauseButton");
+const previousButton = document.getElementById("previousButton");
+const nextButton = document.getElementById("nextButton");
+const volumeControl = document.getElementById("volumeControl");
 const currentStationDisplay = document.getElementById("currentStation");
 
 const stationIDs = [
@@ -9,7 +13,10 @@ const stationIDs = [
     { id: 169, name: "Open FM - 500 Party Hits" }
 ];
 
-// Funkcja generująca URL do pobrania tokena
+let currentStationIndex = 0;
+let isPlaying = false;
+
+// Funkcja generująca URL do API
 function createApiUrl(stationId) {
     return `https://open.fm/api/user/token?fp=https://stream-cdn-1.open.fm/OFM${stationId}/ngrp:standard/playlist.m3u8`;
 }
@@ -27,6 +34,51 @@ async function fetchStreamUrl(stationId) {
     }
 }
 
+// Aktualizuje odtwarzacz z nową stacją
+async function updatePlayer() {
+    const station = stationIDs[currentStationIndex];
+    const streamUrl = await fetchStreamUrl(station.id);
+
+    if (streamUrl) {
+        audioPlayer.src = streamUrl;
+        currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
+        if (isPlaying) {
+            audioPlayer.play();
+        }
+    } else {
+        alert("Nie udało się pobrać strumienia.");
+    }
+}
+
+// Obsługuje przejście do poprzedniej stacji
+function playPreviousStation() {
+    if (currentStationIndex > 0) {
+        currentStationIndex--;
+        updatePlayer();
+    }
+}
+
+// Obsługuje przejście do następnej stacji
+function playNextStation() {
+    if (currentStationIndex < stationIDs.length - 1) {
+        currentStationIndex++;
+        updatePlayer();
+    }
+}
+
+// Pauzowanie i wznawianie odtwarzania
+function togglePlayPause() {
+    if (audioPlayer.paused) {
+        audioPlayer.play();
+        isPlaying = true;
+        playPauseButton.textContent = "Pauza";
+    } else {
+        audioPlayer.pause();
+        isPlaying = false;
+        playPauseButton.textContent = "Graj";
+    }
+}
+
 // Renderuje listę stacji
 function renderStations() {
     radioList.innerHTML = '';
@@ -39,26 +91,24 @@ function renderStations() {
 
         const playButton = document.createElement("button");
         playButton.textContent = "Graj";
-        playButton.onclick = () => playStation(index);
+        playButton.onclick = async () => {
+            currentStationIndex = index;
+            await updatePlayer();
+            audioPlayer.play();
+            isPlaying = true;
+            playPauseButton.textContent = "Pauza";
+        };
 
         stationElement.append(stationName, playButton);
         radioList.appendChild(stationElement);
     });
 }
 
-// Odtwarza wybraną stację
-async function playStation(index) {
-    const station = stationIDs[index];
-    const streamUrl = await fetchStreamUrl(station.id);
-
-    if (streamUrl) {
-        audioPlayer.src = streamUrl;
-        audioPlayer.play();
-        currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
-    } else {
-        alert("Nie udało się pobrać strumienia.");
-    }
-}
-
-// Inicjalizacja strony
+// Inicjalizacja
 renderStations();
+updatePlayer();
+
+playPauseButton.onclick = togglePlayPause;
+previousButton.onclick = playPreviousStation;
+nextButton.onclick = playNextStation;
+volumeControl.oninput = () => (audioPlayer.volume = volumeControl.value);
