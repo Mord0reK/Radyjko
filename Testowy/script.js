@@ -1,33 +1,36 @@
 const radioList = document.getElementById("radioList");
 const audioPlayer = document.getElementById("audioPlayer");
-const playPauseButton = document.getElementById("playPauseButton");
-const previousButton = document.getElementById("previousButton");
-const nextButton = document.getElementById("nextButton");
-const volumeControl = document.getElementById("volumeControl");
 const currentStationDisplay = document.getElementById("currentStation");
 
-let currentStationIndex = -1;
-let stations = [];
+const stationIDs = [
+    { id: 207, name: "Open FM - Vixa" },
+    { id: 160, name: "Open FM - Dance" },
+    { id: 163, name: "Open FM - Do Auta" },
+    { id: 169, name: "Open FM - 500 Party Hits" }
+];
 
-// Funkcja do załadowania pliku Radia.txt
-fetch('Radia.txt')
-    .then(response => response.text())
-    .then(text => {
-        stations = text.split('\n')
-            .map(line => {
-                const urlMatch = line.match(/URL:\s*(https?.*?)(?=\s*;)/);
-                const nameMatch = line.match(/Nazwa:\s*(.*?)(?=\s*$)/);
+// Funkcja generująca URL do pobrania tokena
+function createApiUrl(stationId) {
+    return `https://open.fm/api/user/token?fp=https://stream-cdn-1.open.fm/OFM${stationId}/ngrp:standard/playlist.m3u8`;
+}
 
-                return urlMatch && nameMatch ? { name: nameMatch[1], url: urlMatch[1] } : null;
-            })
-            .filter(Boolean);
+// Pobiera URL strumienia z API OpenFM
+async function fetchStreamUrl(stationId) {
+    const apiUrl = createApiUrl(stationId);
+    try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+        return data.url; // Pobiera URL strumienia z odpowiedzi API
+    } catch (error) {
+        console.error(`Błąd podczas pobierania strumienia dla stacji ${stationId}:`, error);
+        return null;
+    }
+}
 
-        renderStations();
-    });
-
+// Renderuje listę stacji
 function renderStations() {
     radioList.innerHTML = '';
-    stations.forEach((station, index) => {
+    stationIDs.forEach((station, index) => {
         const stationElement = document.createElement("div");
         stationElement.className = "station";
 
@@ -43,47 +46,19 @@ function renderStations() {
     });
 }
 
-function playStation(index) {
-    currentStationIndex = index;
-    const station = stations[index];
+// Odtwarza wybraną stację
+async function playStation(index) {
+    const station = stationIDs[index];
+    const streamUrl = await fetchStreamUrl(station.id);
 
-    if (station.url.includes(".m3u8") && Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(station.url);
-        hls.attachMedia(audioPlayer);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => audioPlayer.play());
-    } else if (audioPlayer.canPlayType("application/vnd.apple.mpegurl")) {
-        audioPlayer.src = station.url;
+    if (streamUrl) {
+        audioPlayer.src = streamUrl;
         audioPlayer.play();
+        currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
     } else {
-        alert("Twoja przeglądarka nie obsługuje odtwarzania tego strumienia.");
-        return;
-    }
-
-    playPauseButton.textContent = "Pauza";
-    currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
-    document.title = station.name;
-}
-
-function togglePlayPause() {
-    if (audioPlayer.paused) {
-        audioPlayer.play();
-        playPauseButton.textContent = "Pauza";
-    } else {
-        audioPlayer.pause();
-        playPauseButton.textContent = "Graj";
+        alert("Nie udało się pobrać strumienia.");
     }
 }
 
-function playPreviousStation() {
-    if (currentStationIndex > 0) playStation(currentStationIndex - 1);
-}
-
-function playNextStation() {
-    if (currentStationIndex < stations.length - 1) playStation(currentStationIndex + 1);
-}
-
-playPauseButton.onclick = togglePlayPause;
-previousButton.onclick = playPreviousStation;
-nextButton.onclick = playNextStation;
-volumeControl.oninput = () => (audioPlayer.volume = volumeControl.value);
+// Inicjalizacja strony
+renderStations();
