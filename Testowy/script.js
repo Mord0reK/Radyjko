@@ -46,7 +46,6 @@ async function fetchOpenFMStreamUrl(stationId) {
     }
 }
 
-// Aktualizuje odtwarzacz dla bieżącej stacji
 async function updatePlayer() {
     const station = stations[currentStationIndex];
     let streamUrl;
@@ -73,13 +72,17 @@ async function updatePlayer() {
         }
 
         currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
-        if (isPlaying) {
+        if (isPlaying && streamUrl) {
             audioPlayer.play();
+        } else {
+            audioPlayer.pause();
+            playPauseButton.textContent = "Graj";
         }
     } else {
         alert(`Nie udało się odtworzyć stacji: ${station.name}`);
     }
 }
+
 
 // Obsługuje przejście do poprzedniej stacji
 function playPreviousStation() {
@@ -137,7 +140,6 @@ function renderStations() {
 
 // Inicjalizacja
 renderStations();
-updatePlayer();
 
 playPauseButton.onclick = togglePlayPause;
 previousButton.onclick = playPreviousStation;
