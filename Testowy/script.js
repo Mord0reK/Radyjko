@@ -6,54 +6,69 @@ const nextButton = document.getElementById("nextButton");
 const volumeControl = document.getElementById("volumeControl");
 const currentStationDisplay = document.getElementById("currentStation");
 
-const stationIDs = [
-    { id: 207, name: "Open FM - Vixa" },
-    { id: 160, name: "Open FM - Dance" },
-    { id: 163, name: "Open FM - Do Auta" },
-    { id: 169, name: "Open FM - 500 Party Hits" }
+// Lista stacji (połączona z OpenFM i innymi stacjami)
+const stations = [
+    { id: 207, name: "Open FM - Vixa", isOpenFM: true },
+    { id: 160, name: "Open FM - Dance", isOpenFM: true },
+    { id: 163, name: "Open FM - Do Auta", isOpenFM: true },
+    { id: 169, name: "Open FM - 500 Party Hits", isOpenFM: true },
+    { url: "https://radioparty.pl:8888/djmixes", name: "Radioparty - DJ Mixes", isOpenFM: false },
+    { url: "https://s2.radioparty.pl:7000/stream?nocache=5782", name: "Radioparty - Kanal Glowny", isOpenFM: false },
+    { url: "https://s1.slotex.pl:7432/stream/1/?sid=1", name: "Disco Party", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6020-1.mp3", name: "VOX FM - DJ Mix", isOpenFM: false },
+    { url: "https://ic2.smcdn.pl/3990-1.mp3", name: "VOX FM", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6100-1.mp3", name: "VOX FM - Best Lista", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_fm", name: "RMF FM", isOpenFM: false },
+    { url: "http://31.192.216.10:8000/rmf_maxxx", name: "RMF MAXX", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_party", name: "RMF Party", isOpenFM: false },
+    { url: "https://ic2.smcdn.pl/2060-1.mp3", name: "ESKA Siedlce", isOpenFM: false },
+    { url: "https://n-11-23.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5", name: "Radio ZET", isOpenFM: false },
+    { url: "https://zt05.cdn.eurozet.pl/ZETDAN.mp3?redirected=05/", name: "Radio Zet Dance", isOpenFM: false },
+    { url: "http://zt04.cdn.eurozet.pl/ZETPAR.mp3", name: "Radio Zet Party", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6110-1.mp3", name: "ESKA 2 - Disco Polo", isOpenFM: false },
+    { url: "https://stream.rcs.revma.com/cvswvmyewzzuv", name: "Radio Disco", isOpenFM: false }
 ];
 
 let currentStationIndex = 0;
 let isPlaying = false;
-let hls = null; // Obiekt HLS.js
+let hls = null;
 
-// Funkcja generująca URL do API
-function createApiUrl(stationId) {
-    return `https://open.fm/api/user/token?fp=https://stream-cdn-1.open.fm/OFM${stationId}/ngrp:standard/playlist.m3u8`;
-}
-
-// Pobiera URL strumienia z API OpenFM
-async function fetchStreamUrl(stationId) {
-    const apiUrl = createApiUrl(stationId);
+// Pobiera URL strumienia OpenFM z API
+async function fetchOpenFMStreamUrl(stationId) {
+    const apiUrl = `https://open.fm/api/user/token?fp=https://stream-cdn-1.open.fm/OFM${stationId}/ngrp:standard/playlist.m3u8`;
     try {
         const response = await fetch(apiUrl);
         const data = await response.json();
-        return data.url; // Pobiera URL strumienia z odpowiedzi API
+        return data.url;
     } catch (error) {
-        console.error(`Błąd podczas pobierania strumienia dla stacji ${stationId}:`, error);
+        console.error(`Błąd pobierania strumienia dla stacji OpenFM ID ${stationId}:`, error);
         return null;
     }
 }
 
-// Aktualizuje odtwarzacz z nową stacją
+// Aktualizuje odtwarzacz dla bieżącej stacji
 async function updatePlayer() {
-    const station = stationIDs[currentStationIndex];
-    const streamUrl = await fetchStreamUrl(station.id);
+    const station = stations[currentStationIndex];
+    let streamUrl;
+
+    if (station.isOpenFM) {
+        streamUrl = await fetchOpenFMStreamUrl(station.id);
+    } else {
+        streamUrl = station.url;
+    }
 
     if (streamUrl) {
-        // Obsługa HLS (M3U8) z HLS.js
-        if (Hls.isSupported()) {
+        if (station.isOpenFM && Hls.isSupported()) {
             if (hls) {
-                hls.destroy(); // Zniszcz poprzednią instancję HLS.js
+                hls.destroy();
             }
             hls = new Hls();
             hls.loadSource(streamUrl);
             hls.attachMedia(audioPlayer);
-        } else if (audioPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-            // Native support dla HLS
+        } else if (audioPlayer.canPlayType('application/vnd.apple.mpegurl') || !station.isOpenFM) {
             audioPlayer.src = streamUrl;
         } else {
-            alert("Twoja przeglądarka nie obsługuje odtwarzania tego strumienia.");
+            alert("Twoja przeglądarka nie obsługuje tego strumienia.");
             return;
         }
 
@@ -62,7 +77,7 @@ async function updatePlayer() {
             audioPlayer.play();
         }
     } else {
-        alert("Nie udało się pobrać strumienia.");
+        alert(`Nie udało się odtworzyć stacji: ${station.name}`);
     }
 }
 
@@ -76,7 +91,7 @@ function playPreviousStation() {
 
 // Obsługuje przejście do następnej stacji
 function playNextStation() {
-    if (currentStationIndex < stationIDs.length - 1) {
+    if (currentStationIndex < stations.length - 1) {
         currentStationIndex++;
         updatePlayer();
     }
@@ -98,7 +113,7 @@ function togglePlayPause() {
 // Renderuje listę stacji
 function renderStations() {
     radioList.innerHTML = '';
-    stationIDs.forEach((station, index) => {
+    stations.forEach((station, index) => {
         const stationElement = document.createElement("div");
         stationElement.className = "station";
 
