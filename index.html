@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Radyjko</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -22,7 +23,6 @@
         #radioList {
             width: 80%;
             max-width: 600px;
-            height: 800px;
             overflow-y: scroll;
             margin: 20px 0;
             border: 1px solid #ccc;
@@ -40,7 +40,6 @@
             background-color: black;
             color: white;
             border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: background-color 0.3s;
         }
         .station:hover {
@@ -48,12 +47,11 @@
         }
         .station button {
             padding: 5px 10px;
-            border: none;
-            border-radius: 3px;
             background-color: #4CAF50;
             color: white;
+            border: none;
+            border-radius: 3px;
             cursor: pointer;
-            transition: background-color 0.3s;
         }
         .station button:hover {
             background-color: #45a049;
@@ -65,52 +63,37 @@
             width: 80%;
             max-width: 600px;
         }
-        #playPauseButton {
+        #playPauseButton,
+        #previousButton,
+        #nextButton {
             padding: 10px 20px;
             margin: 10px 0;
-            border: none;
-            border-radius: 5px;
             background-color: #008CBA;
             color: white;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.3s;
         }
-        #playPauseButton:hover {
+        #playPauseButton:hover,
+        #previousButton:hover,
+        #nextButton:hover {
             background-color: #007bb5;
         }
         #volumeControl {
             width: 100%;
             max-width: 600px;
-            margin-top: 10px;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        #previousButton, #nextButton {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            background-color: #008CBA;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        #previousButton:hover, #nextButton:hover {
-            background-color: #007bb5;
+            margin: 10px 0;
         }
         #currentStation {
             color: white;
-            margin-top: 10px;
-            font-size: 1.2em;
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
     <h1>Radyjko</h1>
     <div id="controls">
-        <div class="button-group">
+        <div>
             <button id="previousButton">⏮️</button>
             <button id="playPauseButton">Graj</button>
             <button id="nextButton">⏭️</button>
@@ -119,8 +102,7 @@
         <div id="currentStation">Brak odtwarzanej stacji</div>
     </div>
     <div id="radioList"></div>
-    <audio id="audioPlayer" controls style="display: none;"></audio>
-
+    <audio id="audioPlayer" style="display: none;"></audio>
     <script src="script.js"></script>
 </body>
 </html>
