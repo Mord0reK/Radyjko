@@ -1,4 +1,3 @@
-Here is a basic README file written in Polish for your repository:
 
 ```
 # Radyjko
@@ -44,4 +43,3 @@ Radyjko to projekt mający na celu stworzenie aplikacji internetowej do odtwarza
 Projekt jest dostępny na licencji MIT. Więcej informacji znajduje się w pliku LICENSE.
 ```
 
-Możesz dostosować ten README do swoich potrzeb, dodając więcej szczegółów na temat projektu, jego funkcjonalności oraz instrukcji obsługi.
