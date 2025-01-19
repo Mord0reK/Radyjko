@@ -1,5 +1,4 @@
 
-```
 # Radyjko
 
 ## Opis
@@ -41,5 +40,4 @@ Radyjko to projekt mający na celu stworzenie aplikacji internetowej do odtwarza
 
 ## Licencja
 Projekt jest dostępny na licencji MIT. Więcej informacji znajduje się w pliku LICENSE.
-```
 
