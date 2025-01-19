@@ -8,25 +8,25 @@ const currentStationDisplay = document.getElementById("currentStation");
 
 // Lista stacji (połączona z OpenFM i innymi stacjami)
 const stations = [
-    { id: 207, name: "Open FM - Vixa", isOpenFM: true },
-    { id: 160, name: "Open FM - Dance", isOpenFM: true },
-    { id: 163, name: "Open FM - Do Auta", isOpenFM: true },
-    { id: 169, name: "Open FM - 500 Party Hits", isOpenFM: true },
-    { url: "https://radioparty.pl:8888/djmixes", name: "Radioparty - DJ Mixes", isOpenFM: false },
-    { url: "https://s2.radioparty.pl:7000/stream?nocache=5782", name: "Radioparty - Kanal Glowny", isOpenFM: false },
-    { url: "https://s1.slotex.pl:7432/stream/1/?sid=1", name: "Disco Party", isOpenFM: false },
-    { url: "https://waw.ic.smcdn.pl/6020-1.mp3", name: "VOX FM - DJ Mix", isOpenFM: false },
-    { url: "https://ic2.smcdn.pl/3990-1.mp3", name: "VOX FM", isOpenFM: false },
-    { url: "https://waw.ic.smcdn.pl/6100-1.mp3", name: "VOX FM - Best Lista", isOpenFM: false },
-    { url: "https://rs6-krk2.rmfstream.pl/rmf_fm", name: "RMF FM", isOpenFM: false },
-    { url: "https://rs103-krk.rmfstream.pl/rmf_maxxx", name: "RMF MAXX", isOpenFM: false },
-    { url: "https://rs6-krk2.rmfstream.pl/rmf_party", name: "RMF Party", isOpenFM: false },
-    { url: "https://ic2.smcdn.pl/2060-1.mp3", name: "ESKA Siedlce", isOpenFM: false },
-    { url: "https://n-11-23.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5", name: "Radio ZET", isOpenFM: false },
-    { url: "https://zt05.cdn.eurozet.pl/ZETDAN.mp3?redirected=05/", name: "Radio Zet Dance", isOpenFM: false },
-    { url: "https://zt04.cdn.eurozet.pl/ZETPAR.mp3", name: "Radio Zet Party", isOpenFM: false },
-    { url: "https://waw.ic.smcdn.pl/6110-1.mp3", name: "ESKA 2 - Disco Polo", isOpenFM: false },
-    { url: "https://stream.rcs.revma.com/cvswvmyewzzuv", name: "Radio Disco", isOpenFM: false }
+    { id: 207, name: "Open FM - Vixa", shortName: "openfm-vixa", isOpenFM: true },
+    { id: 160, name: "Open FM - Dance", shortName: "openfm-dance", isOpenFM: true },
+    { id: 163, name: "Open FM - Do Auta", shortName: "openfm-doauta", isOpenFM: true },
+    { id: 169, name: "Open FM - 500 Party Hits", shortName: "openfm-500partyhits", isOpenFM: true },
+    { url: "https://radioparty.pl:8888/djmixes", name: "Radioparty - DJ Mixes", shortName: "rp-djmixes", isOpenFM: false },
+    { url: "https://s2.radioparty.pl:7000/stream?nocache=5782", name: "Radioparty - Kanal Glowny", shortName: "rp-kanalglowny", isOpenFM: false },
+    { url: "https://s1.slotex.pl:7432/stream/1/?sid=1", name: "Disco Party", shortName: "disco-party", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6020-1.mp3", name: "VOX FM - DJ Mix", shortName: "voxfm-djmix", isOpenFM: false },
+    { url: "https://ic2.smcdn.pl/3990-1.mp3", name: "VOX FM", shortName: "voxfm", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6100-1.mp3", name: "VOX FM - Best Lista", shortName: "voxfm-bestlista", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_fm", name: "RMF FM", shortName: "rmf-fm", isOpenFM: false },
+    { url: "https://rs103-krk.rmfstream.pl/rmf_maxxx", name: "RMF MAXX", shortName: "rmf-maxxx", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_party", name: "RMF Party", shortName: "rmf-party", isOpenFM: false },
+    { url: "https://ic2.smcdn.pl/2060-1.mp3", name: "ESKA Siedlce", shortName: "eska-siedlce", isOpenFM: false },
+    { url: "https://n-11-23.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5", name: "Radio ZET", shortName: "radio-zet", isOpenFM: false },
+    { url: "https://zt05.cdn.eurozet.pl/ZETDAN.mp3?redirected=05/", name: "Radio Zet Dance", shortName: "radiozet-dance", isOpenFM: false },
+    { url: "https://zt04.cdn.eurozet.pl/ZETPAR.mp3", name: "Radio Zet Party", shortName: "radiozet-party", isOpenFM: false },
+    { url: "https://waw.ic.smcdn.pl/6110-1.mp3", name: "ESKA 2 - Disco Polo", shortName: "eska2-discopolo", isOpenFM: false },
+    { url: "https://stream.rcs.revma.com/cvswvmyewzzuv", name: "Radio Disco", shortName: "radio-disco", isOpenFM: false }
 ];
 
 let currentStationIndex = 0;
