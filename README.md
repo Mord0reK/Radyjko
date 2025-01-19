@@ -2,7 +2,7 @@
 # Radyjko
 
 ## Opis
-Radyjko to projekt mający na celu stworzenie aplikacji internetowej do odtwarzania radia online. Projekt wykorzystuje technologie takie jak JavaScript, HTML, Python oraz Batchfile.
+Radyjko to projekt mający na celu stworzenie aplikacji internetowej do odtwarzania radia online. Projekt wykorzystuje technologie takie jak JavaScript, HTML (Frontend), Python oraz Batchfile (Backend).
 
 ## Funkcjonalności
 - Odtwarzanie stacji radiowych online
