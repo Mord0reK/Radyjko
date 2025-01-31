@@ -12,20 +12,22 @@ const stations = [
     { id: 160, name: "Open FM - Dance", shortName: "openfm-dance", isOpenFM: true },
     { id: 163, name: "Open FM - Do Auta", shortName: "openfm-doauta", isOpenFM: true },
     { id: 169, name: "Open FM - 500 Party Hits", shortName: "openfm-500partyhits", isOpenFM: true },
-    { url: "https://radioparty.pl:8888/djmixes", name: "Radioparty - DJ Mixes", shortName: "rp-djmixes", isOpenFM: false },
-    { url: "https://s2.radioparty.pl:7000/stream?nocache=5782", name: "Radioparty - Kanal Glowny", shortName: "rp-kanalglowny", isOpenFM: false },
-    { url: "https://s1.slotex.pl:7432/stream/1/?sid=1", name: "Disco Party", shortName: "disco-party", isOpenFM: false },
-    { url: "https://waw.ic.smcdn.pl/6020-1.mp3", name: "VOX FM - DJ Mix", shortName: "voxfm-djmix", isOpenFM: false },
-    { url: "https://ic2.smcdn.pl/3990-1.mp3", name: "VOX FM", shortName: "voxfm", isOpenFM: false },
-    { url: "https://waw.ic.smcdn.pl/6100-1.mp3", name: "VOX FM - Best Lista", shortName: "voxfm-bestlista", isOpenFM: false },
+    { url: "https://s2.radioparty.pl:7000/djmixes?nocache=7379", name: "Radioparty - DJ Mixes", shortName: "rp-djmixes", isOpenFM: false },
+    { url: "https://s2.radioparty.pl:7000/stream?nocache=3295", name: "Radioparty - Kanal Glowny", shortName: "rp-kanalglowny", isOpenFM: false },
+    { url: "https://radio.stream.smcdn.pl/timeradio-p/6020-1.aac/playlist.m3u8", name: "VOX FM - DJ Mix", shortName: "voxfm-djmix", isOpenFM: false },
+    { url: "https://radio.stream.smcdn.pl/timeradio-p/3990-1.aac/playlist.m3u8", name: "VOX FM", shortName: "voxfm", isOpenFM: false },
+    { url: "https://radio.stream.smcdn.pl/timeradio-p/6100-1.aac/playlist.m3u8", name: "VOX FM - Best Lista", shortName: "voxfm-bestlista", isOpenFM: false },
     { url: "https://rs6-krk2.rmfstream.pl/rmf_fm", name: "RMF FM", shortName: "rmf-fm", isOpenFM: false },
     { url: "https://rs103-krk.rmfstream.pl/rmf_maxxx", name: "RMF MAXX", shortName: "rmf-maxxx", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_hop_bec", name: "RMF MAXX Hop Bęc", shortName: "rmf-maxxx-hop-bec", isOpenFM: false },
     { url: "https://rs6-krk2.rmfstream.pl/rmf_party", name: "RMF Party", shortName: "rmf-party", isOpenFM: false },
-    { url: "https://ic2.smcdn.pl/2060-1.mp3", name: "ESKA Siedlce", shortName: "eska-siedlce", isOpenFM: false },
-    { url: "https://n-11-23.dcs.redcdn.pl/sc/o2/Eurozet/live/audio.livx?audio=5", name: "Radio ZET", shortName: "radio-zet", isOpenFM: false },
-    { url: "https://zt05.cdn.eurozet.pl/ZETDAN.mp3?redirected=05/", name: "Radio Zet Dance", shortName: "radiozet-dance", isOpenFM: false },
+    { url: "https://rs6-krk2.rmfstream.pl/rmf_dance", name: "RMF Dance", shortName: "rmf-dance", isOpenFM: false },
+    { url: "https://radio.stream.smcdn.pl/timeradio-p/2060-1.aac/playlist.m3u8", name: "ESKA Siedlce", shortName: "eska-siedlce", isOpenFM: false },
+    { url: "https://hub.radiostream.pl/stream.pls?radio=8400&type=none&dist=zet&app=none&coding=aac&redirect=true", name: "Radio ZET", shortName: "radio-zet", isOpenFM: false },
+    { url: "https://22733.live.streamtheworld.com/ZET_DANCEAAC.aac", name: "Radio Zet Dance", shortName: "radiozet-dance", isOpenFM: false },
     { url: "https://zt04.cdn.eurozet.pl/ZETPAR.mp3", name: "Radio Zet Party", shortName: "radiozet-party", isOpenFM: false },
     { url: "https://waw.ic.smcdn.pl/6110-1.mp3", name: "ESKA 2 - Disco Polo", shortName: "eska2-discopolo", isOpenFM: false },
+    { url: "https://s1.slotex.pl:7432/stream/1/?sid=1", name: "Disco Party", shortName: "disco-party", isOpenFM: false },
     { url: "https://stream.rcs.revma.com/cvswvmyewzzuv", name: "Radio Disco", shortName: "radio-disco", isOpenFM: false }
 ];
 
@@ -57,32 +59,48 @@ async function updatePlayer() {
     }
 
     if (streamUrl) {
-        if (station.isOpenFM && Hls.isSupported()) {
-            if (hls) {
-                hls.destroy();
-            }
+        // Zniszcz poprzednią instancję HLS jeśli istnieje
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        if (streamUrl.includes('.m3u8') && Hls.isSupported()) {
+            // Obsługa strumieni HLS (m3u8)
             hls = new Hls();
             hls.loadSource(streamUrl);
             hls.attachMedia(audioPlayer);
-        } else if (audioPlayer.canPlayType('application/vnd.apple.mpegurl') || !station.isOpenFM) {
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                if (isPlaying) {
+                    audioPlayer.play().catch(e => console.error('Błąd odtwarzania:', e));
+                }
+            });
+        } else if (streamUrl.includes('.aac') || streamUrl.includes('timeradio-p')) {
+            // Obsługa strumieni AAC
             audioPlayer.src = streamUrl;
+            audioPlayer.type = 'audio/aac';
+            if (isPlaying) {
+                audioPlayer.play().catch(e => console.error('Błąd odtwarzania:', e));
+            }
         } else {
-            alert("Twoja przeglądarka nie obsługuje tego strumienia.");
-            return;
+            // Pozostałe formaty
+            audioPlayer.src = streamUrl;
+            if (isPlaying) {
+                audioPlayer.play().catch(e => console.error('Błąd odtwarzania:', e));
+            }
         }
 
         currentStationDisplay.textContent = `Odtwarzanie: ${station.name}`;
-        if (isPlaying && streamUrl) {
-            audioPlayer.play();
-        } else {
+        if (!isPlaying) {
             audioPlayer.pause();
             playPauseButton.textContent = "Graj";
+        } else {
+            playPauseButton.textContent = "Pauza";
         }
     } else {
         alert(`Nie udało się odtworzyć stacji: ${station.name}`);
     }
 }
-
 
 // Obsługuje przejście do poprzedniej stacji
 function playPreviousStation() {
