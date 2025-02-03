@@ -12,8 +12,8 @@ const stations = [
     { id: 160, name: "Open FM - Dance", shortName: "openfm-dance", isOpenFM: true },
     { id: 163, name: "Open FM - Do Auta", shortName: "openfm-doauta", isOpenFM: true },
     { id: 169, name: "Open FM - 500 Party Hits", shortName: "openfm-500partyhits", isOpenFM: true },
-    { url: "https://s2.radioparty.pl:7000/djmixes?nocache=7379", name: "Radioparty - DJ Mixes", shortName: "rp-djmixes", isOpenFM: false },
     { url: "https://s2.radioparty.pl:7000/stream?nocache=3295", name: "Radioparty - Kanal Glowny", shortName: "rp-kanalglowny", isOpenFM: false },
+    { url: "https://s2.radioparty.pl:7000/djmixes?nocache=7379", name: "Radioparty - DJ Mixes", shortName: "rp-djmixes", isOpenFM: false },
     { url: "https://radio.stream.smcdn.pl/timeradio-p/6020-1.aac/playlist.m3u8", name: "VOX FM - DJ Mix", shortName: "voxfm-djmix", isOpenFM: false },
     { url: "https://radio.stream.smcdn.pl/timeradio-p/3990-1.aac/playlist.m3u8", name: "VOX FM", shortName: "voxfm", isOpenFM: false },
     { url: "https://radio.stream.smcdn.pl/timeradio-p/6100-1.aac/playlist.m3u8", name: "VOX FM - Best Lista", shortName: "voxfm-bestlista", isOpenFM: false },
@@ -131,16 +131,45 @@ function togglePlayPause() {
     }
 }
 
-// Renderuje listę stacji
-function renderStations() {
+// Zaktualizowana funkcja fetchPresenterInfo z użyciem proxy CORS
+async function fetchPresenterInfo() {
+    try {
+        // Używamy darmowego proxy CORS
+        const corsProxy = 'https://api.allorigins.win/raw?url=';
+        const response = await fetch(corsProxy + encodeURIComponent('https://radioparty.pl'));
+        const text = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        
+        const mainChannelPresenter = doc.querySelector('#glowny_dj')?.textContent || '';
+        return mainChannelPresenter;
+    } catch (error) {
+        console.error('Błąd podczas pobierania informacji o prezenterze:', error);
+        return '';
+    }
+}
+
+// Zaktualizowana funkcja renderStations
+async function renderStations() {
+    const mainChannelPresenter = await fetchPresenterInfo();
     radioList.innerHTML = '';
     stations.forEach((station, index) => {
         const stationElement = document.createElement("div");
         stationElement.className = "station";
-        stationElement.style.cursor = "pointer"; // Dodaje kursor pointer
+        stationElement.style.cursor = "pointer";
 
-        const stationName = document.createElement("span");
-        stationName.textContent = station.name;
+        const stationInfo = document.createElement("span");
+        stationInfo.textContent = station.name;
+        
+        // Dodaj informację o prezenterze tylko dla Kanału Głównego RadioParty
+        if (station.shortName === 'rp-kanalglowny' && mainChannelPresenter) {
+            const presenterInfo = document.createElement("small");
+            presenterInfo.style.display = "block";
+            presenterInfo.style.fontSize = "0.8em";
+            presenterInfo.style.color = "#888";
+            presenterInfo.textContent = `Prezenter: ${mainChannelPresenter}`;
+            stationInfo.appendChild(presenterInfo);
+        }
 
         const playButton = document.createElement("button");
         playButton.textContent = "Graj";
@@ -168,7 +197,7 @@ function renderStations() {
             playStation();
         };
 
-        stationElement.append(stationName, playButton);
+        stationElement.append(stationInfo, playButton);
         radioList.appendChild(stationElement);
     });
 }
@@ -210,6 +239,11 @@ if ('mediaSession' in navigator) {
 }
 
 renderStations();
+
+// Dodaj okresowe odświeżanie informacji o prezenterach (co 5 minut)
+setInterval(() => {
+    renderStations();
+}, 300000);
 
 // Zaktualizuj event handler dla volumeControl
 volumeControl.oninput = (e) => {
