@@ -23,7 +23,7 @@ const stations = [
     { url: "https://rs6-krk2.rmfstream.pl/rmf_party", name: "RMF Party", shortName: "rmf-party", isOpenFM: false },
     { url: "https://rs6-krk2.rmfstream.pl/rmf_dance", name: "RMF Dance", shortName: "rmf-dance", isOpenFM: false },
     { url: "https://radio.stream.smcdn.pl/timeradio-p/2060-1.aac/playlist.m3u8", name: "ESKA Siedlce", shortName: "eska-siedlce", isOpenFM: false },
-    { url: "https://hub.radiostream.pl/stream.pls?radio=8400&type=none&dist=zet&app=none&coding=aac&redirect=true", name: "Radio ZET", shortName: "radio-zet", isOpenFM: false },
+    { url: "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO_ZETAAC.aac?dist=zet", name: "Radio ZET", shortName: "radio-zet", isOpenFM: false },
     { url: "https://22733.live.streamtheworld.com/ZET_DANCEAAC.aac", name: "Radio Zet Dance", shortName: "radiozet-dance", isOpenFM: false },
     { url: "https://zt04.cdn.eurozet.pl/ZETPAR.mp3", name: "Radio Zet Party", shortName: "radiozet-party", isOpenFM: false },
     { url: "https://waw.ic.smcdn.pl/6110-1.mp3", name: "ESKA 2 - Disco Polo", shortName: "eska2-discopolo", isOpenFM: false },
