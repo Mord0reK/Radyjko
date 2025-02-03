@@ -39,7 +39,9 @@ let hls = null;
 async function fetchOpenFMStreamUrl(stationId) {
     const apiUrl = `https://open.fm/api/user/token?fp=https://stream-cdn-1.open.fm/OFM${stationId}/ngrp:standard/playlist.m3u8`;
     try {
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+            cache: 'no-store',
+        });
         const data = await response.json();
         return data.url;
     } catch (error) {
@@ -134,9 +136,10 @@ function togglePlayPause() {
 // Zaktualizowana funkcja fetchPresenterInfo z użyciem proxy CORS
 async function fetchPresenterInfo() {
     try {
-        // Używamy darmowego proxy CORS
         const corsProxy = 'https://api.allorigins.win/raw?url=';
-        const response = await fetch(corsProxy + encodeURIComponent('https://radioparty.pl'));
+        const response = await fetch(corsProxy + encodeURIComponent('https://radioparty.pl'), {
+            cache: 'no-store',
+        });
         const text = await response.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'text/html');
