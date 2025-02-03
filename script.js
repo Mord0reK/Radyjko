@@ -137,18 +137,35 @@ function renderStations() {
     stations.forEach((station, index) => {
         const stationElement = document.createElement("div");
         stationElement.className = "station";
+        stationElement.style.cursor = "pointer"; // Dodaje kursor pointer
 
         const stationName = document.createElement("span");
         stationName.textContent = station.name;
 
         const playButton = document.createElement("button");
         playButton.textContent = "Graj";
-        playButton.onclick = async () => {
+
+        // Funkcja do odtwarzania stacji
+        const playStation = async () => {
             currentStationIndex = index;
             await updatePlayer();
             audioPlayer.play();
             isPlaying = true;
             playPauseButton.textContent = "Pauza";
+        };
+
+        // Dodanie obsługi kliknięcia na całe pole stacji
+        stationElement.onclick = (e) => {
+            // Sprawdzamy czy kliknięcie nie było na przycisku
+            if (!e.target.matches('button')) {
+                playStation();
+            }
+        };
+
+        // Obsługa przycisku pozostaje bez zmian
+        playButton.onclick = (e) => {
+            e.stopPropagation(); // Zapobiega wywołaniu kliknięcia na całym elemencie
+            playStation();
         };
 
         stationElement.append(stationName, playButton);
@@ -194,10 +211,28 @@ if ('mediaSession' in navigator) {
 
 renderStations();
 
+// Zaktualizuj event handler dla volumeControl
+volumeControl.oninput = (e) => {
+    const value = e.target.value;
+    audioPlayer.volume = value;
+    // Aktualizacja gradientu tła
+    const percent = value * 100;
+    e.target.style.background = `linear-gradient(to right, #008CBA 0%, #008CBA ${percent}%, #404040 ${percent}%, #404040 100%)`;
+};
 
-renderStations();
+// Dodaj inicjalizację początkowego gradientu
+volumeControl.style.background = 'linear-gradient(to right, #008CBA 0%, #008CBA 100%, #404040 100%)';
 
 playPauseButton.onclick = togglePlayPause;
 previousButton.onclick = playPreviousStation;
 nextButton.onclick = playNextStation;
-volumeControl.oninput = () => (audioPlayer.volume = volumeControl.value);
+volumeControl.oninput = (e) => {
+    const value = e.target.value;
+    audioPlayer.volume = value;
+    // Aktualizacja gradientu tła
+    const percent = value * 100;
+    e.target.style.background = `linear-gradient(to right, #008CBA 0%, #008CBA ${percent}%, #404040 ${percent}%, #404040 100%)`;
+};
+
+// Dodaj inicjalizację początkowego gradientu
+volumeControl.style.background = 'linear-gradient(to right, #008CBA 0%, #008CBA 100%, #404040 100%)';

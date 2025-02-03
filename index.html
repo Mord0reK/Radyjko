@@ -7,95 +7,12 @@
     <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <link rel="icon" type="image/x-icon" href="/icon.png">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: black;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        h1 {
-            color: white;
-        }
-        #radioList {
-            width: 80%;
-            max-width: 600px;
-            overflow-y: scroll;
-            margin: 20px 0;
-            border: 1px solid #ccc;
-            padding: 10px;
-            background-color: black;
-            border-radius: 5px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .station {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: black;
-            color: white;
-            border-radius: 5px;
-            transition: background-color 0.3s;
-        }
-        .station:hover {
-            background-color: #2F4F4F;
-        }
-        .station button {
-            padding: 5px 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-        .station button:hover {
-            background-color: #45a049;
-        }
-        #controls {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 80%;
-            max-width: 600px;
-        }
-        #playPauseButton,
-        #previousButton,
-        #nextButton {
-            padding: 10px 20px;
-            margin: 10px 0;
-            background-color: #008CBA;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        #playPauseButton:hover,
-        #previousButton:hover,
-        #nextButton:hover {
-            background-color: #007bb5;
-        }
-        #volumeControl {
-            width: 100%;
-            max-width: 600px;
-            margin: 10px 0;
-        }
-        #currentStation {
-            color: white;
-            margin: 10px 0;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>Radyjko</h1>
     <div id="controls">
-        <div>
+        <div class="control-buttons">
             <button id="previousButton">⏮️</button>
             <button id="playPauseButton">Graj</button>
             <button id="nextButton">⏭️</button>

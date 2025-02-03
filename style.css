@@ -1,0 +1,219 @@
+html {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+    margin: 0;
+    padding: 3px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden; /* Zapobiega poziomemu scrollowaniu */
+}
+
+h1 {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.3);
+    font-size: 2.5em;
+    margin-bottom: 15px;
+}
+
+#radioList {
+    width: 90%;
+    max-width: 800px;
+    max-height: 60vh;
+    overflow-y: auto;
+    background: rgba(0,0,0,0.4);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    color: aqua;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+#radioList::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+.station {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    margin: 10px 0;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.station:hover {
+    background: rgba(255,255,255,0.1);
+    transform: translateX(5px);
+}
+
+.station span {
+    flex: 1;
+    padding: 0 15px;
+}
+
+.station button {
+    padding: 8px 20px;
+    background: linear-gradient(45deg, #4CAF50, #45a049);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.station button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(76,175,80,0.4);
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    width: 90%;
+    max-width: 800px;
+    margin: 10px 0;
+    padding: 10px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.control-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+#playPauseButton,
+#previousButton,
+#nextButton {
+    padding: 9px 25px;
+    background: linear-gradient(45deg, #008CBA, #007bb5);
+    color: white;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1.1em;
+}
+
+#playPauseButton:hover,
+#previousButton:hover,
+#nextButton:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(0,140,186,0.4);
+}
+
+#volumeControl {
+    width: 100%;
+    max-width: 500px;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: linear-gradient(to right, #008CBA 0%, #008CBA 100%);
+    border-radius: 10px;
+    outline: none;
+    opacity: 0.8;
+    transition: opacity 0.2s, transform 0.2s;
+    margin: 20px 0;
+    cursor: pointer;
+}
+
+#volumeControl:hover {
+    opacity: 1;
+    transform: scale(1.02);
+}
+
+#volumeControl::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    background: #ffffff;
+    border: 3px solid #008CBA;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,140,186,0.3);
+    transition: all 0.3s ease;
+}
+
+#volumeControl::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    background: #008CBA;
+    border-color: #ffffff;
+    box-shadow: 0 0 15px rgba(0,140,186,0.5);
+}
+
+#volumeControl::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: #ffffff;
+    border: 3px solid #008CBA;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0,140,186,0.3);
+    transition: all 0.3s ease;
+}
+
+#volumeControl::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    background: #008CBA;
+    border-color: #ffffff;
+    box-shadow: 0 0 15px rgba(0,140,186,0.5);
+}
+
+#volumeControl::-moz-range-track {
+    background: linear-gradient(to right, #008CBA 0%, #008CBA 100%);
+    border-radius: 10px;
+    height: 8px;
+}
+
+#currentStation {
+    color: #fff;
+    font-size: 1.2em;
+    text-align: center;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2);
+    margin-bottom: 10px;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+
+    #controls {
+        padding: 15px;
+    }
+
+    .control-buttons {
+        gap: 10px;
+    }
+
+    #playPauseButton,
+    #previousButton,
+    #nextButton {
+        padding: 10px 20px;
+        font-size: 1em;
+    }
+}
