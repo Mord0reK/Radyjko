@@ -329,14 +329,23 @@ jobs:
 
           package() {
             cd "$srcdir"
-            local deb
-            deb=(frontend/src-tauri/target/release/bundle/deb/*.deb)
-            dpkg-deb --fsys-tarfile "${deb[0]}" | bsdtar -x -C "$pkgdir" -f -
+            local target_dir="${CARGO_TARGET_DIR:-$srcdir/frontend/src-tauri/target}"
+            local debs=("$target_dir"/release/bundle/deb/*.deb)
 
-            # Ensure the desktop entry and icons are present — the deb
-            # extraction above should already contain them, but we regenerate
-            # icons from the canonical source to cover cases where the deb
-            # stores them under a non-standard name or path.
+            if [[ ${#debs[@]} -ne 1 || ! -f "${debs[0]}" ]]; then
+              error "Oczekiwano dokładnie jednego pakietu DEB w $target_dir/release/bundle/deb"
+              return 1
+            fi
+
+            dpkg-deb --extract "${debs[0]}" "$pkgdir"
+
+            if [[ ! -x "$pkgdir/usr/bin/radyjko" ]]; then
+              error "Pakiet DEB nie zawiera wykonywalnego pliku usr/bin/radyjko"
+              return 1
+            fi
+
+            # Ikony odtwarzamy z kanonicznego źródła, jeśli pakiet DEB umieścił
+            # je pod niestandardową nazwą lub w innym katalogu.
             local icon_src="frontend/src-tauri/icons/icon.png"
             if [[ -f "$icon_src" ]]; then
               local icon_dir="$pkgdir/usr/share/icons/hicolor"
@@ -379,9 +388,15 @@ jobs:
 
       - name: Collect pacman package
         run: |
-          ls -la /home/builder/pkgbuild/*.pkg.tar.zst
+          set -euo pipefail
+          packages=(/home/builder/pkgbuild/*.pkg.tar.zst)
+          if [[ ${#packages[@]} -ne 1 || ! -f "${packages[0]}" ]]; then
+            echo "Oczekiwano dokładnie jednego pakietu Arch Linux" >&2
+            exit 1
+          fi
+          tar -tf "${packages[0]}" | grep -Fx 'usr/bin/radyjko' >/dev/null
           mkdir -p arch-packages
-          cp /home/builder/pkgbuild/*.pkg.tar.zst arch-packages/
+          cp "${packages[0]}" arch-packages/
 
       - name: Upload Arch Linux package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
