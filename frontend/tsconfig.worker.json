@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "types": ["@cloudflare/workers-types"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "worker/**/*.ts",
+    "src/cloudflare-env.d.ts",
+    "src/do/**/*.ts",
+    "src/lib/cors.ts",
+    "src/lib/fetchers/**/*.ts",
+    "src/lib/proxy/**/*.ts",
+    "src/lib/types.ts",
+    "src/lib/warsawTime.ts"
+  ],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"]
+}

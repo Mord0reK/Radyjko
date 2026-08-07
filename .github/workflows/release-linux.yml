@@ -1,0 +1,671 @@
+name: Release Radyjko
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Wersja semver bez prefiksu v, np. 1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ inputs.version }}
+  cancel-in-progress: true
+
+jobs:
+  validate-version:
+    name: Validate version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      version_code: ${{ steps.version.outputs.version_code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate semver version
+        id: version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          semver_regex='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if [[ ! "$VERSION" =~ $semver_regex ]]; then
+            echo "Version must use semver, for example 1.2.3 or 1.2.3-rc.1" >&2
+            exit 1
+          fi
+          IFS='.' read -r major minor patch_with_prerelease <<< "$VERSION"
+          patch="${patch_with_prerelease%%-*}"
+          if (( major > 2146 || minor > 999 || patch > 999 )); then
+            echo "Version components exceed Android versionCode scheme limits" >&2
+            exit 1
+          fi
+          version_code=$((major * 1000000 + minor * 1000 + patch))
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag does not exist
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+
+  build-linux:
+    name: Build Linux packages
+    needs: validate-version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          shared-key: desktop-linux
+          cache-on-failure: true
+
+      - name: Install Linux build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            file \
+            imagemagick \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            patchelf \
+            pkg-config \
+            rpm \
+            xdg-utils
+
+      - name: Cache Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Generate app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend/src-tauri
+          mkdir -p icons
+          # Pad source icon to square 1024x1024 with transparent background
+          # PNG32 forces PNG color type 6 (8-bit RGBA), required by
+          # tauri::generate_context!. ImageMagick may otherwise optimize an
+          # opaque/paletted source to RGB or indexed PNG even with a transparent
+          # canvas, which makes the Tauri proc macro abort.
+          convert ../public/icon.png \
+            -gravity center \
+            -background none \
+            -extent 1024x1024 \
+            PNG32:icons/icon.png
+          color_type="$(od -An -t u1 -j 25 -N 1 icons/icon.png | tr -d ' ')"
+          if [[ "$color_type" != "6" ]]; then
+            echo "Generated icon must use PNG color type 6 (RGBA), got $color_type" >&2
+            exit 1
+          fi
+          # Generate .ico for Windows (multiple sizes)
+          convert icons/icon.png \
+            \( -clone 0 -resize 16x16 \) \
+            \( -clone 0 -resize 32x32 \) \
+            \( -clone 0 -resize 48x48 \) \
+            \( -clone 0 -resize 64x64 \) \
+            \( -clone 0 -resize 128x128 \) \
+            \( -clone 0 -resize 256x256 \) \
+            -delete 0 \
+            icons/icon.ico
+
+      - name: Set release version
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          bun -e '
+            const version = process.env.VERSION;
+            for (const path of ["frontend/package.json", "frontend/src-tauri/tauri.conf.json"]) {
+              const json = JSON.parse(await Bun.file(path).text());
+              json.version = version;
+              if (path.endsWith("tauri.conf.json")) {
+                json.build.beforeBuildCommand = "bun run build:desktop";
+                json.bundle.icon = ["icons/icon.png"];
+              }
+              await Bun.write(path, `${JSON.stringify(json, null, 2)}\n`);
+            }
+          '
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"${VERSION}\"/" frontend/src-tauri/Cargo.toml
+
+      - name: Build deb, rpm and AppImage
+        working-directory: frontend
+        run: bun run tauri build --bundles deb,rpm,appimage
+
+      - name: Upload Linux packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: linux-packages
+          if-no-files-found: error
+          path: |
+            frontend/src-tauri/target/release/bundle/deb/*.deb
+            frontend/src-tauri/target/release/bundle/rpm/*.rpm
+            frontend/src-tauri/target/release/bundle/appimage/*.AppImage
+
+  build-arch:
+    name: Build Arch Linux package
+    needs: validate-version
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux@sha256:fe6972d4dc1f660c0c10f4c41b2de8986bab89e7e2955378f8beadb8ebcd7433
+    steps:
+      - name: Install base tools
+        run: |
+          pacman -Syu --noconfirm --needed \
+            appmenu-gtk-module \
+            base-devel \
+            bun \
+            curl \
+            dpkg \
+            file \
+            gst-libav \
+            gst-plugins-base \
+            gst-plugins-good \
+            imagemagick \
+            libappindicator-gtk3 \
+            librsvg \
+            nodejs \
+            openssl \
+            rust \
+            unzip \
+            webkit2gtk-4.1 \
+            wget \
+            xdotool
+
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Generate app icons
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd frontend/src-tauri
+          mkdir -p icons
+          convert ../public/icon.png \
+            -gravity center \
+            -background none \
+            -extent 1024x1024 \
+            PNG32:icons/icon.png
+          color_type="$(od -An -t u1 -j 25 -N 1 icons/icon.png | tr -d ' ')"
+          if [[ "$color_type" != "6" ]]; then
+            echo "Generated icon must use PNG color type 6 (RGBA), got $color_type" >&2
+            exit 1
+          fi
+          convert icons/icon.png \
+            \( -clone 0 -resize 16x16 \) \
+            \( -clone 0 -resize 32x32 \) \
+            \( -clone 0 -resize 48x48 \) \
+            \( -clone 0 -resize 64x64 \) \
+            \( -clone 0 -resize 128x128 \) \
+            \( -clone 0 -resize 256x256 \) \
+            -delete 0 \
+            icons/icon.ico
+
+      - name: Set release version
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          bun -e '
+            const version = process.env.VERSION;
+            for (const path of ["frontend/package.json", "frontend/src-tauri/tauri.conf.json"]) {
+              const json = JSON.parse(await Bun.file(path).text());
+              json.version = version;
+              if (path.endsWith("tauri.conf.json")) {
+                json.build.beforeBuildCommand = "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json && node node_modules/typescript/bin/tsc --noEmit -p tsconfig.worker.json && node node_modules/vite/bin/vite.js build --mode desktop";
+              }
+              await Bun.write(path, `${JSON.stringify(json, null, 2)}\n`);
+            }
+          '
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"${VERSION}\"/" frontend/src-tauri/Cargo.toml
+
+      - name: Create non-root builder user
+        run: |
+          useradd -m builder
+
+      - name: Cache zależności i artefakty Rust dla Arch Linux
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            /home/builder/.cargo/registry
+            /home/builder/.cargo/git
+            /home/builder/.cache/radyjko/target
+            /home/builder/.bun/install/cache
+          key: arch-bun-rust-v2-${{ runner.arch }}-${{ hashFiles('frontend/bun.lock', 'frontend/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            arch-bun-rust-v2-${{ runner.arch }}-
+
+      - name: Ustaw prawa do cache Rust
+        run: |
+          mkdir -p /home/builder/.cargo /home/builder/.cache/radyjko /home/builder/.bun
+          chown -R builder:builder /home/builder/.cargo /home/builder/.cache /home/builder/.bun
+
+      - name: Copy repo and set permissions
+        run: |
+          cp -r . /home/builder/radyjko
+          chown -R builder:builder /home/builder/radyjko
+
+      - name: Create source archive
+        run: |
+          cd /home/builder/radyjko
+          tar czf /tmp/radyjko-src.tar.gz --exclude=.git --exclude=target .
+
+      - name: Write PKGBUILD
+        run: |
+          mkdir -p /home/builder/pkgbuild
+          cp /tmp/radyjko-src.tar.gz /home/builder/pkgbuild/
+          cat > /home/builder/pkgbuild/PKGBUILD << 'PKGEOF'
+          pkgname=radyjko
+          pkgver=0.0.0
+          pkgrel=1
+          pkgdesc="Aplikacja do słuchania internetowych stacji radiowych"
+          arch=("x86_64")
+          url="https://github.com/Mord0reK/Radyjko"
+          license=("MIT")
+          depends=("webkit2gtk-4.1" "gtk3" "libsoup3" "libappindicator-gtk3" "librsvg" "hicolor-icon-theme" "gst-plugins-base" "gst-plugins-good" "gst-libav")
+          options=("!strip" "!debug")
+          install=radyjko.install
+          source=("radyjko-src.tar.gz")
+          sha256sums=("SKIP")
+
+          prepare() {
+            cd "$srcdir"
+            cd frontend
+            bun install --frozen-lockfile --ignore-scripts
+          }
+
+          build() {
+            cd "$srcdir"
+            cd frontend
+            bun run tauri build --bundles deb
+          }
+
+          package() {
+            cd "$srcdir"
+            local deb
+            deb=(frontend/src-tauri/target/release/bundle/deb/*.deb)
+            dpkg-deb --fsys-tarfile "${deb[0]}" | bsdtar -x -C "$pkgdir" -f -
+
+            # Ensure the desktop entry and icons are present — the deb
+            # extraction above should already contain them, but we regenerate
+            # icons from the canonical source to cover cases where the deb
+            # stores them under a non-standard name or path.
+            local icon_src="frontend/src-tauri/icons/icon.png"
+            if [[ -f "$icon_src" ]]; then
+              local icon_dir="$pkgdir/usr/share/icons/hicolor"
+              for size in 16 32 48 64 128 256; do
+                mkdir -p "$icon_dir/${size}x${size}/apps"
+                convert "$icon_src" -resize ${size}x${size} "$icon_dir/${size}x${size}/apps/radyjko.png"
+              done
+              mkdir -p "$icon_dir/scalable/apps"
+              cp "$icon_src" "$icon_dir/scalable/apps/radyjko.png"
+            fi
+          }
+          PKGEOF
+
+          cat > /home/builder/pkgbuild/radyjko.install << 'INSEOF'
+          post_install() {
+            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+            update-desktop-database -q
+          }
+
+          post_upgrade() {
+            post_install
+          }
+
+          post_remove() {
+            gtk-update-icon-cache -q -t -f usr/share/icons/hicolor
+            update-desktop-database -q
+          }
+          INSEOF
+
+          chown -R builder:builder /home/builder/pkgbuild
+
+      - name: Set version in PKGBUILD
+        env:
+          VERSION: ${{ needs.validate-version.outputs.version }}
+        run: sed -i "s/^pkgver=.*/pkgver=${VERSION}/" /home/builder/pkgbuild/PKGBUILD
+
+      - name: Build pacman package
+        run: sudo -u builder env PATH="/usr/local/bin:/usr/bin:/bin" CARGO_TARGET_DIR="/home/builder/.cache/radyjko/target" makepkg --noconfirm
+        working-directory: /home/builder/pkgbuild
+
+      - name: Collect pacman package
+        run: |
+          ls -la /home/builder/pkgbuild/*.pkg.tar.zst
+          mkdir -p arch-packages
+          cp /home/builder/pkgbuild/*.pkg.tar.zst arch-packages/
+
+      - name: Upload Arch Linux package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: arch-package
+          if-no-files-found: error
+          path: arch-packages/*.pkg.tar.zst
+
+  build-windows:
+    name: Build Windows installer
+    needs: validate-version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          shared-key: desktop-windows
+          cache-on-failure: true
+
+      - name: Cache Bun
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Generate app icons
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --no-deps "Pillow==12.2.0"
+          cd frontend/src-tauri
+          New-Item -ItemType Directory -Force -Path icons
+          python -c "
+          from PIL import Image
+          
+          src = Image.open('../public/icon.png').convert('RGBA')
+          size = max(src.size)
+          square = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+          offset = ((size - src.width) // 2, (size - src.height) // 2)
+          square.paste(src, offset)
+          square.save('icons/icon.png')
+          
+          square.save(
+              'icons/icon.ico',
+              format='ICO',
+              sizes=[(size, size) for size in (16, 32, 48, 64, 128, 256)],
+          )
+          "
+
+      - name: Set release version
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.validate-version.outputs.version }}
+        run: |
+          $packageJson = Get-Content frontend/package.json -Raw | ConvertFrom-Json
+          $packageJson.version = $env:VERSION
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content frontend/package.json
+
+          $tauriConfig = Get-Content frontend/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
+          $tauriConfig.version = $env:VERSION
+          $tauriConfig.build.beforeBuildCommand = "bun run build:desktop"
+          $tauriConfig | ConvertTo-Json -Depth 100 | Set-Content frontend/src-tauri/tauri.conf.json
+
+          (Get-Content frontend/src-tauri/Cargo.toml -Raw) -replace '(?m)^version = "[^"]+"', "version = `"$env:VERSION`"" |
+            Set-Content frontend/src-tauri/Cargo.toml
+
+      - name: Build Windows installer
+        working-directory: frontend
+        run: bun run tauri build --bundles nsis
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-installer
+          if-no-files-found: error
+          path: frontend/src-tauri/target/release/bundle/nsis/*.exe
+
+  build-android:
+    name: Build signed Android artifacts
+    needs: validate-version
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ needs.validate-version.outputs.version }}
+      VERSION_CODE: ${{ needs.validate-version.outputs.version_code }}
+      BUILD_TOOLS_VERSION: "36.0.0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+
+      - name: Restore Bun cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Install Android build tools and NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;${BUILD_TOOLS_VERSION}" \
+            "ndk;30.0.15729638"
+
+      - name: Set up Rust targets
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          shared-key: android
+          cache-on-failure: true
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Set release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun -e '
+            const version = process.env.VERSION;
+            for (const path of ["frontend/package.json", "frontend/src-tauri/tauri.conf.json"]) {
+              const json = JSON.parse(await Bun.file(path).text());
+              json.version = version;
+              await Bun.write(path, `${JSON.stringify(json, null, 2)}\n`);
+            }
+          '
+          sed -i -E "s/^version = \"[^\"]+\"/version = \"${VERSION}\"/" frontend/src-tauri/Cargo.toml
+          cat > frontend/src-tauri/gen/android/tauri.properties <<EOF
+          tauri.android.versionName=${VERSION}
+          tauri.android.versionCode=${VERSION_CODE}
+          EOF
+
+      - name: Build unsigned APK and AAB
+        working-directory: frontend
+        run: bun run android:build
+
+      - name: Restore Android keystore
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "Missing GitHub Actions secret: ANDROID_KEYSTORE_BASE64" >&2
+            exit 1
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/radyjko-release.jks"
+
+      - name: Sign and verify artifacts
+        shell: bash
+        env:
+          KEYSTORE: ${{ runner.temp }}/radyjko-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!secret}" ]]; then
+              echo "Missing GitHub Actions secret: $secret" >&2
+              exit 1
+            fi
+          done
+          unsigned_apk="frontend/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk"
+          unsigned_aab="frontend/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab"
+          release_dir="frontend/src-tauri/gen/android/app/build/outputs/release"
+          mkdir -p "$release_dir"
+
+          "$ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/zipalign" -p -f 4 "$unsigned_apk" "$release_dir/Radyjko-${VERSION}.apk"
+          "$ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass "env:ANDROID_KEYSTORE_PASSWORD" \
+            --key-pass "env:ANDROID_KEY_PASSWORD" \
+            "$release_dir/Radyjko-${VERSION}.apk"
+          "$ANDROID_HOME/build-tools/${BUILD_TOOLS_VERSION}/apksigner" verify --verbose --print-certs "$release_dir/Radyjko-${VERSION}.apk"
+
+          jarsigner \
+            -keystore "$KEYSTORE" \
+            -storepass:env ANDROID_KEYSTORE_PASSWORD \
+            -keypass:env ANDROID_KEY_PASSWORD \
+            -signedjar "$release_dir/Radyjko-${VERSION}.aab" \
+            "$unsigned_aab" \
+            "$ANDROID_KEY_ALIAS"
+          # Android release keystores are normally self-signed. `-strict` would
+          # incorrectly fail this verification despite a valid AAB signature.
+          jarsigner -verify -certs "$release_dir/Radyjko-${VERSION}.aab"
+
+      - name: Remove Android keystore
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/radyjko-release.jks"
+
+      - name: Upload signed Android artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-artifacts
+          if-no-files-found: error
+          path: |
+            frontend/src-tauri/gen/android/app/build/outputs/release/*.apk
+            frontend/src-tauri/gen/android/app/build/outputs/release/*.aab
+
+  publish-release:
+    name: Publish GitHub Release
+    needs:
+      - validate-version
+      - build-linux
+      - build-arch
+      - build-windows
+      - build-android
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List downloaded release files
+        shell: bash
+        run: find release-assets -type f -print
+
+      - name: Publish release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          tag_name: ${{ needs.validate-version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Radyjko ${{ needs.validate-version.outputs.tag }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          files: |
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
+            release-assets/**/*.AppImage
+            release-assets/**/*.pkg.tar.zst
+            release-assets/**/*.exe
+            release-assets/**/*.apk
+            release-assets/**/*.aab

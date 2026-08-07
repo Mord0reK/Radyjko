@@ -1,0 +1,116 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+build/bin/
+
+# Test binary and coverage
+*.test
+*.out
+coverage/
+
+# Go workspace file
+go.work
+
+# Build artifacts
+build/
+dist/
+out/
+target/
+*.deb
+*.rpm
+*.AppImage
+*.apk
+*.aab
+
+# Dependencies and generated files
+node_modules/
+wailsjs/
+.wrangler/
+.next/
+.turbo/
+.cache/
+next-env.d.ts
+*.tsbuildinfo
+.tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files and logs
+*.log
+tmp/
+temp/
+
+# Environment files and local runtime variables
+.env
+.env.*
+!.env.example
+!.env.*.example
+!/frontend/.env.desktop
+!/frontend/.env.desktop.example
+.dev.vars*
+
+# Package manager and debug files
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Private keys, certificates and signing stores
+*.pem
+*.key
+*.pk8
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pkcs12
+*.mobileprovision
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+key.properties
+keystore.properties
+local.properties
+
+# Credentials, authentication files and browser cookies
+.netrc
+.npmrc
+.pypirc
+credentials.json
+service-account*.json
+cookies.txt
+cookies*.txt
+*.cookies
+cookies*.sqlite
+
+# Deployment tools
+.vercel/

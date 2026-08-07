@@ -1,0 +1,9 @@
+[install]
+# 7 dni
+minimumReleaseAge = 604800
+
+# Zapisuj nowe zależności jako dokładne wersje
+exact = true
+
+# Nie uruchamiaj lifecycle scripts zależności
+ignoreScripts = true

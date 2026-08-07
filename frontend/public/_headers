@@ -1,0 +1,11 @@
+/assets/*
+  Cache-Control: public,max-age=31536000,immutable
+
+/manifest.json
+  Cache-Control: public,max-age=0,must-revalidate
+
+/service-worker.js
+  Cache-Control: public,max-age=0,must-revalidate
+
+/icon.png
+  Cache-Control: public,max-age=31536000,immutable
