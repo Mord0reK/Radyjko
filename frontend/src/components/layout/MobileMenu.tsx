@@ -4,6 +4,7 @@ import { Menu, X, Heart, TriangleAlert } from 'lucide-react';
 import { useApp, getStationGroup, getIconPath } from '@/contexts/AppContext';
 import type { Station } from '@/lib/types';
 import { getStationPath } from '@/lib/clientRoutes';
+import { DownloadMenu } from '@/components/common/DownloadSection';
 
 interface MobileStationItemProps {
   station: Station;
@@ -155,6 +156,10 @@ export function MobileMenu() {
             <button onClick={handleClose} className="p-2 rounded-lg hover:bg-neutral-800 transition-colors" aria-label="Zamknij menu">
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          <div className="shrink-0 border-b border-neutral-800">
+            <DownloadMenu onOpen={handleClose} />
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-8 scrollbar-hide" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px))' }}>

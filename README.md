@@ -12,6 +12,7 @@ Wersja webowa działa jako Cloudflare Worker; wersja desktopowa to natywna aplik
 - Obsługa strumieni HLS za pomocą hls.js
 - Discord Rich Presence (tylko wersja desktopowa)
 - Własny proxy strumieni dla stacji z ograniczeniami CORS
+- Pobieranie instalatorów z najnowszego publicznego wydania (tylko wersja webowa)
 
 ## Stack technologiczny
 
@@ -57,6 +58,20 @@ bun run dev
 ```
 
 Otwórz `http://localhost:5173` w przeglądarce.
+
+### Pobieranie aplikacji
+
+W zwykłej wersji przeglądarkowej przycisk „Pobierz aplikację” znajduje się pod
+logo w desktopowym panelu bocznym oraz w menu mobilnym. Otwiera modal z APK,
+instalatorem Windows oraz AppImage i pakietami dla Linuxa bezpośrednio z
+najnowszego publicznego wydania
+[GitHub Releases](https://github.com/Mord0reK/Radyjko/releases). Po wybraniu pliku
+wyświetlana jest instrukcja instalacji, w tym szczegółowe kroki dla APK. Przycisk
+nie jest widoczny w aplikacji Tauri.
+
+Informacje o wydaniu są odświeżane najwyżej raz na 15 minut. Dopóki repozytorium
+jest prywatne, GitHub zwraca anonimowym użytkownikom błąd 404; pobieranie zacznie
+działać po jego upublicznieniu.
 
 ### Desktop (tryb deweloperski)
 

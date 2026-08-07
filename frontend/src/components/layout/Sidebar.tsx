@@ -3,6 +3,7 @@ import { Heart, TriangleAlert } from 'lucide-react';
 import { useApp, getStationGroup, getIconPath } from '@/contexts/AppContext';
 import type { Station } from '@/lib/types';
 import { getStationPath } from '@/lib/clientRoutes';
+import { DownloadMenu } from '@/components/common/DownloadSection';
 
 interface StationItemProps {
   station: Station;
@@ -113,6 +114,10 @@ export function Sidebar() {
         </div>
         <h1 className="text-xl font-bold tracking-tight">Radyjko</h1>
       </Link>
+
+      <div className="border-b border-neutral-800">
+        <DownloadMenu />
+      </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-24 scrollbar-hide">
         {favoriteStations.length > 0 && (
