@@ -1,0 +1,334 @@
+name: Krzak Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Zadanie dla agenta
+        required: true
+        type: string
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  agent: # Mord0reK i JanDziaslo
+    if: >-
+      ${{
+        (github.repository_owner_id == '135718526' ||
+         github.repository_owner_id == '184263826') &&
+        (
+          github.event_name == 'workflow_dispatch' ||
+          (
+            github.event_name == 'issue_comment' &&
+            github.event.issue.pull_request == null &&
+            (github.event.comment.body == '/krzak' ||
+             startsWith(github.event.comment.body, '/krzak '))
+          )
+        )
+      }}
+
+    runs-on: ubuntu-latest
+
+    env:
+      KRZAK_MODEL: opencode/deepseek-v4-flash-free
+
+    steps:
+      - name: Setup Krzak Agent
+        id: krzak
+        uses: Mord0reK/Krzak-agent@main
+
+      - name: Prepare task context
+        id: context
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TASK: ${{ inputs.task }}
+          REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_CREATED_AT: ${{ github.event.comment.created_at }}
+        run: |
+          set -euo pipefail
+
+          TASK_FILE="$RUNNER_TEMP/krzak-task.md"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            printf '%s' "$INPUT_TASK" > "$TASK_FILE"
+            echo "mode=task" >> "$GITHUB_OUTPUT"
+            echo "base-branch=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            echo "issue-number=" >> "$GITHUB_OUTPUT"
+            echo "comment-id=" >> "$GITHUB_OUTPUT"
+          else
+            REPOSITORY_JSON="$(gh api "/repos/$REPOSITORY")"
+            ISSUE_JSON="$(gh api "/repos/$REPOSITORY/issues/$ISSUE_NUMBER")"
+            COMMENTS_JSON="$(gh api --paginate --slurp "/repos/$REPOSITORY/issues/$ISSUE_NUMBER/comments" | jq 'add')"
+
+            ISSUE_TITLE="$(jq -r '.title' <<< "$ISSUE_JSON")"
+            ISSUE_BODY="$(jq -r '.body // ""' <<< "$ISSUE_JSON")"
+            DEFAULT_BRANCH="$(jq -r '.default_branch' <<< "$REPOSITORY_JSON")"
+            EXTRA_INSTRUCTION="${COMMENT_BODY#'/krzak'}"
+            EXTRA_INSTRUCTION="${EXTRA_INSTRUCTION# }"
+
+            {
+              printf '# Issue #%s: %s\n\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
+              printf '%s\n\n' "$ISSUE_BODY"
+              echo '## Wcześniejsza dyskusja'
+              jq -r --arg current_id "$COMMENT_ID" --arg current_time "$COMMENT_CREATED_AT" '
+                .[]
+                | select((.id | tostring) != $current_id and .created_at < $current_time)
+                | "### \(.user.login) (\(.created_at))\n\(.body)\n"
+              ' <<< "$COMMENTS_JSON"
+              if [ -n "$EXTRA_INSTRUCTION" ]; then
+                echo '## Dodatkowa instrukcja'
+                printf '%s\n' "$EXTRA_INSTRUCTION"
+              fi
+            } > "$TASK_FILE"
+
+            echo "mode=issue" >> "$GITHUB_OUTPUT"
+            echo "base-branch=$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "issue-number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "comment-id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "task-file=$TASK_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Create issue reaction token
+        if: steps.context.outputs.mode == 'issue'
+        id: reaction-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ steps.krzak.outputs.app-client-id }}
+          private-key: ${{ secrets.KRZAK_APP_PRIVATE_KEY }}
+          permission-issues: write
+          skip-token-revoke: true
+
+      - name: Acknowledge issue command
+        if: steps.context.outputs.mode == 'issue'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.reaction-token.outputs.token }}
+          COMMENT_ID: ${{ steps.context.outputs.comment-id }}
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method POST \
+            "/repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" \
+            -f content=eyes
+
+      - name: Revoke issue reaction token
+        if: >-
+          ${{
+            always() &&
+            steps.context.outputs.mode == 'issue' &&
+            steps.reaction-token.outcome == 'success'
+          }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.reaction-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          gh api --method DELETE /installation/token
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          ref: ${{ steps.context.outputs.base-branch }}
+
+      - name: Run OpenCode
+        shell: bash
+        run: |
+          opencode run \
+            --auto \
+            --model "$KRZAK_MODEL" \
+            "$(cat "${{ steps.context.outputs.task-file }}")"
+
+      - name: Check changes
+        id: changes
+        shell: bash
+        run: |
+          echo "=== git status ==="
+          git status --short
+
+          echo
+          echo "=== git diff ==="
+          git diff
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to publish."
+          fi
+
+      - name: Generate publication metadata
+        if: steps.changes.outputs.changed == 'true'
+        id: publication
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RESPONSE_FILE="$RUNNER_TEMP/krzak-publication-response.jsonl"
+          TEXT_FILE="$RUNNER_TEMP/krzak-publication.json"
+
+          opencode run \
+            --continue \
+            --auto \
+            --model "$KRZAK_MODEL" \
+            --format json \
+            "$(cat "$HOME/.config/krzak-agent/PUBLISH.md")" \
+            > "$RESPONSE_FILE"
+
+          jq -rs '
+            [
+              .[]
+              | select(.type == "text")
+              | .part.text
+            ]
+            | join("")
+          ' "$RESPONSE_FILE" > "$TEXT_FILE"
+
+          jq -e '
+            type == "object" and
+
+            (.commit_message | type == "string") and
+            (.commit_message | length > 0) and
+
+            (.title | type == "string") and
+            (.title | length > 0) and
+
+            (.body | type == "string")
+          ' "$TEXT_FILE" > /dev/null
+
+          {
+            echo "commit-message<<KRZAK_EOF"
+            jq -r '.commit_message' "$TEXT_FILE"
+            echo "KRZAK_EOF"
+
+            echo "title<<KRZAK_EOF"
+            jq -r '.title' "$TEXT_FILE"
+            echo "KRZAK_EOF"
+
+            echo "body<<KRZAK_EOF"
+            jq -r '.body' "$TEXT_FILE"
+            echo "KRZAK_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        if: steps.changes.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ steps.krzak.outputs.app-client-id }}
+          private-key: ${{ secrets.KRZAK_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
+      - name: Get GitHub App user ID
+        if: steps.changes.outputs.changed == 'true'
+        id: app-user
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          USER_ID="$(gh api "/users/${APP_SLUG}[bot]" --jq '.id')"
+          echo "user-id=$USER_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changed == 'true'
+        id: publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_USER_ID: ${{ steps.app-user.outputs.user-id }}
+          COMMIT_MESSAGE: ${{ steps.publication.outputs.commit-message }}
+          KRZAK_MODE: ${{ steps.context.outputs.mode }}
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue-number }}
+        run: |
+          set -euo pipefail
+
+          if [ "$KRZAK_MODE" = "issue" ]; then
+            BRANCH="krzak-agent/issue-${ISSUE_NUMBER}-${GITHUB_RUN_ID}"
+          else
+            BRANCH="krzak-agent/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          fi
+
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${APP_USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+
+          gh auth setup-git
+
+          git switch -c "$BRANCH"
+          git add -A
+          git commit -m "$COMMIT_MESSAGE"
+          git push -u origin "$BRANCH"
+
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        if: steps.changes.outputs.changed == 'true'
+        id: create-pr
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ steps.publish.outputs.branch }}
+          BASE_BRANCH: ${{ steps.context.outputs.base-branch }}
+          KRZAK_MODE: ${{ steps.context.outputs.mode }}
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue-number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          PR_TITLE: ${{ steps.publication.outputs.title }}
+          PR_BODY: ${{ steps.publication.outputs.body }}
+        run: |
+          set -euo pipefail
+
+          PR_BODY_FILE="$RUNNER_TEMP/krzak-pr-body.md"
+
+          if [ "$KRZAK_MODE" = "issue" ]; then
+            {
+              printf 'Naprawia issue #%s: **%s**\n\n' "$ISSUE_NUMBER" "$ISSUE_TITLE"
+              printf '%s\n' "$PR_BODY"
+              echo
+              printf 'Fixes #%s\n' "$ISSUE_NUMBER"
+            } > "$PR_BODY_FILE"
+          else
+            printf '%s\n' "$PR_BODY" > "$PR_BODY_FILE"
+          fi
+
+          PR_URL="$(
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$BRANCH" \
+              --title "$PR_TITLE" \
+              --body-file "$PR_BODY_FILE"
+          )"
+
+          echo "url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on issue
+        if: >-
+          ${{
+            steps.changes.outputs.changed == 'true' &&
+            steps.context.outputs.mode == 'issue'
+          }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ steps.context.outputs.issue-number }}
+          PR_URL: ${{ steps.create-pr.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          gh issue comment "$ISSUE_NUMBER" \
+            --body "Krzak Agent zakończył pracę nad tym issue. Utworzony pull request: $PR_URL"
