@@ -330,10 +330,10 @@ jobs:
           package() {
             cd "$srcdir"
             local target_dir="${CARGO_TARGET_DIR:-$srcdir/frontend/src-tauri/target}"
-            local debs=("$target_dir"/release/bundle/deb/*.deb)
+            local debs=("$target_dir"/release/bundle/deb/*_"$pkgver"_amd64.deb)
 
             if [[ ${#debs[@]} -ne 1 || ! -f "${debs[0]}" ]]; then
-              error "Oczekiwano dokładnie jednego pakietu DEB w $target_dir/release/bundle/deb"
+              error "Oczekiwano dokładnie jednego pakietu DEB w wersji $pkgver w $target_dir/release/bundle/deb"
               return 1
             fi
 
