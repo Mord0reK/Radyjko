@@ -144,8 +144,22 @@ jobs:
           persist-credentials: false
           ref: ${{ steps.context.outputs.base-branch }}
 
+      - name: Create GitHub MCP token
+        id: github-mcp-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ steps.krzak.outputs.app-client-id }}
+          private-key: ${{ secrets.KRZAK_APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-issues: read
+          permission-pull-requests: read
+          permission-dependabot-alerts: read
+          skip-token-revoke: true
+
       - name: Run OpenCode
         shell: bash
+        env:
+          KRZAK_GITHUB_MCP_TOKEN: ${{ steps.github-mcp-token.outputs.token }}
         run: |
           opencode run \
             --auto \
@@ -174,6 +188,8 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         id: publication
         shell: bash
+        env:
+          KRZAK_GITHUB_MCP_TOKEN: ${{ steps.github-mcp-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -222,6 +238,20 @@ jobs:
             jq -r '.body' "$TEXT_FILE"
             echo "KRZAK_EOF"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Revoke GitHub MCP token
+        if: >-
+          ${{
+            always() &&
+            steps.github-mcp-token.outcome == 'success'
+          }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.github-mcp-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          gh api --method DELETE /installation/token
 
       - name: Create GitHub App token
         if: steps.changes.outputs.changed == 'true'
