@@ -180,6 +180,7 @@ jobs:
           client-id: ${{ steps.krzak.outputs.app-client-id }}
           private-key: ${{ secrets.KRZAK_APP_PRIVATE_KEY }}
           permission-issues: write
+          permission-pull-requests: write
           skip-token-revoke: true
 
       - name: Acknowledge command
