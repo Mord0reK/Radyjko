@@ -547,7 +547,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             .readTimeout(0, TimeUnit.SECONDS)
             .build()
         nowPlayingClient = client
-        val request = Request.Builder().url(wsUrl).build()
+        val request = Request.Builder()
+            .url(wsUrl)
+            .header("User-Agent", "Radyjko-Android-${BuildConfig.VERSION_NAME}")
+            .build()
 
         nowPlayingWs = client.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
