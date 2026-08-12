@@ -863,6 +863,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
 
             return try {
                 connection.requestMethod = "GET"
+                connection.setRequestProperty("User-Agent", "Radyjko-Android-${BuildConfig.VERSION_NAME}")
                 connection.connectTimeout = 10_000
                 connection.readTimeout = 10_000
                 if (connection.responseCode !in 200..299) {
