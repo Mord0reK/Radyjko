@@ -25,7 +25,7 @@ test("maps supported assets from the latest GitHub release", () => {
     ],
   });
 
-  assert.equal(release.version, "3.1.5");
+  assert.equal(release.version, "3.1.7");
   assert.deepEqual(release.assets.map((asset) => asset.kind), [
     "android-apk",
     "windows-exe",
