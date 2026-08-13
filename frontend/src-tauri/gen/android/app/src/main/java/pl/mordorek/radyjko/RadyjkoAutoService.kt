@@ -79,6 +79,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
     private var shutdownJob: Job? = null
     private var androidAutoClientCount = 0
     private var stopping = false
+    private var playbackScope = PlaybackScope.ALL
 
     override fun onCreate() {
         super.onCreate()
@@ -132,9 +133,9 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                     }
                 }
                 override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
-                    mediaId?.toLongOrNull()?.let { stationId ->
-                        playStation(stationId)
-                    }
+                    val selection = parseMediaId(mediaId) ?: return
+                    setPlaybackScope(selection.first)
+                    playStation(selection.second)
                 }
             })
             isActive = true
@@ -219,22 +220,22 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                 result.detach()
                 serviceScope.launch {
                     stationsLoadJob?.join()
-                    result.sendResult(createStationItems(parentId == FAVORITES_ID))
+                    result.sendResult(createStationItems(scopeForParent(parentId)))
                 }
                 return
             }
-            createStationItems(parentId == FAVORITES_ID)
+            createStationItems(scopeForParent(parentId))
         } else {
             mutableListOf()
         }
         result.sendResult(items)
     }
 
-    private fun createStationItems(onlyFavorites: Boolean = false): MutableList<MediaBrowserCompat.MediaItem> =
-        RadyjkoAutoState.stations.filter { !onlyFavorites || RadyjkoAutoState.favorites.contains(it.id) }.map { station ->
+    private fun createStationItems(scope: PlaybackScope): MutableList<MediaBrowserCompat.MediaItem> =
+        stationsForScope(scope).map { station ->
             val nowPlaying = RadyjkoAutoState.nowPlaying[station.id]
             val description = android.support.v4.media.MediaDescriptionCompat.Builder()
-                .setMediaId(station.id.toString())
+                .setMediaId(mediaId(scope, station.id))
                 .setTitle(station.name)
             nowPlaying?.let { track ->
                 if (track.title.isNotBlank()) {
@@ -305,13 +306,23 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
     }
 
     private fun playAdjacentStation(direction: Int) {
-        val stations = RadyjkoAutoState.stations
-        if (stations.isEmpty()) return
-        val currentIndex = stations.indexOfFirst { it.id == RadyjkoAutoState.activeStationId }
-        val nextIndex = if (currentIndex == -1) 0 else {
-            (currentIndex + direction + stations.size) % stations.size
-        }
-        playStation(stations[nextIndex].id)
+        adjacentStationId(
+            stationsForScope(playbackScope),
+            RadyjkoAutoState.activeStationId,
+            direction,
+        )?.let(::playStation)
+    }
+
+    private fun stationsForScope(scope: PlaybackScope): List<AutoStationArgs> = orderedStations(
+        RadyjkoAutoState.stations,
+        RadyjkoAutoState.favorites,
+        scope,
+    )
+
+    private fun setPlaybackScope(scope: PlaybackScope) {
+        if (playbackScope == scope) return
+        playbackScope = scope
+        applyQueue()
     }
 
     private fun startPlayback(streamUrl: String, isHls: Boolean) {
@@ -500,14 +511,14 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
     }
 
     private fun applyQueue() {
-        val queue = RadyjkoAutoState.stations.map { station ->
+        val queue = stationsForScope(playbackScope).map { station ->
             val nowPlaying = RadyjkoAutoState.nowPlaying[station.id]
             val parts = mutableListOf<String>()
             nowPlaying?.artist?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
             nowPlaying?.title?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
             val subtitle = parts.joinToString(" — ").takeIf { it.isNotBlank() }
             val description = android.support.v4.media.MediaDescriptionCompat.Builder()
-                .setMediaId(station.id.toString())
+                .setMediaId(mediaId(playbackScope, station.id))
                 .setTitle(station.name)
                 .setSubtitle(subtitle)
             if (station.artworkUrl.isNotBlank()) {
@@ -519,7 +530,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             )
         }
         mediaSession.setQueue(queue)
-        mediaSession.setQueueTitle("Stacje")
+        mediaSession.setQueueTitle(if (playbackScope == PlaybackScope.FAVORITES) "Ulubione" else "Stacje")
     }
 
     private fun loadArtwork(url: String) {
@@ -659,6 +670,8 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         private const val ROOT_ID = "radyjko-root"
         private const val STATIONS_ID = "radyjko-stations"
         private const val FAVORITES_ID = "radyjko-favorites"
+        private const val STATION_MEDIA_ID_PREFIX = "station:"
+        private const val FAVORITE_MEDIA_ID_PREFIX = "favorite:"
         private const val ACTION_ADD_FAVORITE = "pl.mordorek.radyjko.ADD_FAVORITE"
         private const val ACTION_REMOVE_FAVORITE = "pl.mordorek.radyjko.REMOVE_FAVORITE"
         private const val TAG = "RadyjkoAuto"
@@ -671,6 +684,27 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         private var instance: RadyjkoAutoService? = null
         private var pendingStationId: Long? = null
         private var pendingVolume: Float? = null
+
+        private fun scopeForParent(parentId: String): PlaybackScope =
+            if (parentId == FAVORITES_ID) PlaybackScope.FAVORITES else PlaybackScope.ALL
+
+        private fun mediaId(scope: PlaybackScope, stationId: Long): String = when (scope) {
+            PlaybackScope.ALL -> "$STATION_MEDIA_ID_PREFIX$stationId"
+            PlaybackScope.FAVORITES -> "$FAVORITE_MEDIA_ID_PREFIX$stationId"
+        }
+
+        private fun parseMediaId(mediaId: String?): Pair<PlaybackScope, Long>? {
+            if (mediaId == null) return null
+            if (mediaId.startsWith(FAVORITE_MEDIA_ID_PREFIX)) {
+                return mediaId.removePrefix(FAVORITE_MEDIA_ID_PREFIX).toLongOrNull()
+                    ?.let { PlaybackScope.FAVORITES to it }
+            }
+            if (mediaId.startsWith(STATION_MEDIA_ID_PREFIX)) {
+                return mediaId.removePrefix(STATION_MEDIA_ID_PREFIX).toLongOrNull()
+                    ?.let { PlaybackScope.ALL to it }
+            }
+            return mediaId.toLongOrNull()?.let { PlaybackScope.ALL to it }
+        }
 
         private fun stationArtworkUrl(shortName: String): String {
             val extension = when (shortName) {
@@ -728,6 +762,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         fun requestPlay(context: android.content.Context, stationId: Long) {
             val service = instance
             if (service != null) {
+                service.setPlaybackScope(PlaybackScope.ALL)
                 service.playStation(stationId)
                 return
             }
@@ -771,6 +806,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                 .edit()
                 .putString(FAVORITES_PREFERENCE_KEY, serialized)
                 .apply()
+            instance?.applyQueue()
             instance?.applyState()
             instance?.notifyChildrenChanged(FAVORITES_ID)
         }
