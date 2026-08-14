@@ -4,11 +4,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.app.SearchManager
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -44,6 +46,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.Normalizer
 import java.util.concurrent.TimeUnit
 
 data class NowPlayingTrack(
@@ -136,6 +139,17 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                     val selection = parseMediaId(mediaId) ?: return
                     setPlaybackScope(selection.first)
                     playStation(selection.second)
+                }
+                override fun onPlayFromSearch(query: String?, extras: Bundle?) {
+                    playFromSearchQuery(query, extras)
+                }
+                override fun onPrepareFromSearch(query: String?, extras: Bundle?) {
+                    playFromSearchQuery(query, extras)
+                }
+                override fun onPlayFromUri(uri: Uri?, extras: Bundle?) {
+                    val stationQuery = uri?.getQueryParameter("station")
+                        ?: uri?.lastPathSegment
+                    playFromSearchQuery(stationQuery, extras)
                 }
             })
             isActive = true
@@ -260,6 +274,45 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             if (stations.isNotEmpty()) {
                 updateStations(applicationContext, stations)
             }
+        }
+    }
+
+    private fun playFromSearchQuery(query: String?, extras: Bundle?) {
+        cancelPendingShutdown()
+        startNowPlayingWs()
+
+        val searchQuery = extractSearchQuery(query, extras)
+        if (searchQuery.isNullOrBlank()) {
+            val fallbackStationId = RadyjkoAutoState.activeStationId
+                ?: RadyjkoAutoState.favorites.firstOrNull()
+                ?: RadyjkoAutoState.stations.firstOrNull()?.id
+            if (fallbackStationId != null) {
+                setPlaybackScope(PlaybackScope.ALL)
+                playStation(fallbackStationId)
+            } else {
+                resumePlayback()
+            }
+            return
+        }
+
+        fun playMatch() {
+            val station = findStationByQuery(searchQuery, RadyjkoAutoState.stations)
+            if (station != null) {
+                setPlaybackScope(PlaybackScope.ALL)
+                playStation(station.id)
+            } else {
+                resumePlayback()
+            }
+        }
+
+        if (RadyjkoAutoState.stations.isEmpty()) {
+            ensureStationsLoaded()
+            serviceScope.launch {
+                stationsLoadJob?.join()
+                playMatch()
+            }
+        } else {
+            playMatch()
         }
     }
 
@@ -391,6 +444,8 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
             PlaybackStateCompat.ACTION_SKIP_TO_QUEUE_ITEM or
             PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
+            PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH or
+            PlaybackStateCompat.ACTION_PREPARE_FROM_SEARCH or
             PlaybackStateCompat.ACTION_SET_RATING
         val playbackState = PlaybackStateCompat.Builder()
             .setActions(actions)
@@ -684,6 +739,56 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         private var instance: RadyjkoAutoService? = null
         private var pendingStationId: Long? = null
         private var pendingVolume: Float? = null
+
+        private fun normalizeSearchText(text: String): String =
+            Normalizer.normalize(text.replace('ł', 'l').replace('Ł', 'L'), Normalizer.Form.NFD)
+                .replace("\\p{InCombiningDiacriticalMarks}+".toRegex(), "")
+                .lowercase()
+                .replace("[^a-z0-9 ]".toRegex(), " ")
+                .replace("\\s+".toRegex(), " ")
+                .trim()
+
+        private fun stripNoiseWords(text: String): String = text.split(" ")
+            .filter { word ->
+                word !in setOf(
+                    "radio", "radia", "stacja", "stacje", "stacji", "fm",
+                    "wlacz", "odtworz", "graj", "zagraj", "prosze", "mi", "w", "na",
+                )
+            }
+            .joinToString(" ")
+            .trim()
+
+        fun extractSearchQuery(query: String?, extras: Bundle?): String? {
+            query?.takeIf { it.isNotBlank() }?.let { return it }
+            extras?.getString(SearchManager.QUERY)?.takeIf { it.isNotBlank() }?.let { return it }
+            extras?.getString(MediaStore.EXTRA_MEDIA_TITLE)?.takeIf { it.isNotBlank() }?.let { return it }
+            extras?.getString(MediaStore.EXTRA_MEDIA_ARTIST)?.takeIf { it.isNotBlank() }?.let { return it }
+            extras?.getString(MediaStore.EXTRA_MEDIA_ALBUM)?.takeIf { it.isNotBlank() }?.let { return it }
+            return null
+        }
+
+        fun findStationByQuery(rawQuery: String, stations: List<AutoStationArgs>): AutoStationArgs? {
+            val query = normalizeSearchText(rawQuery)
+            if (query.isBlank() || stations.isEmpty()) return null
+            val cleanQuery = stripNoiseWords(query)
+
+            stations.firstOrNull { station ->
+                val name = normalizeSearchText(station.name)
+                val shortName = normalizeSearchText(station.shortName.replace('-', ' '))
+                query == name || query == shortName || cleanQuery == stripNoiseWords(name) ||
+                    (cleanQuery.isNotBlank() && cleanQuery == stripNoiseWords(shortName))
+            }?.let { return it }
+
+            val queryTokens = (if (cleanQuery.isNotBlank()) cleanQuery else query)
+                .split(" ").filter { it.length > 1 }
+            if (queryTokens.isEmpty()) return null
+
+            return stations.firstOrNull { station ->
+                val searchable = "${normalizeSearchText(station.name)} " +
+                    normalizeSearchText(station.shortName.replace('-', ' '))
+                queryTokens.all { token -> searchable.contains(token) }
+            }
+        }
 
         private fun scopeForParent(parentId: String): PlaybackScope =
             if (parentId == FAVORITES_ID) PlaybackScope.FAVORITES else PlaybackScope.ALL
