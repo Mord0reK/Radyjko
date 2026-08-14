@@ -168,6 +168,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             pendingStationId = null
             playStation(it)
         }
+        pendingSearch?.let { (query, extras) ->
+            pendingSearch = null
+            playFromSearchQuery(query, extras)
+        }
     }
 
     override fun onDestroy() {
@@ -739,6 +743,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         private var instance: RadyjkoAutoService? = null
         private var pendingStationId: Long? = null
         private var pendingVolume: Float? = null
+        private var pendingSearch: Pair<String?, Bundle?>? = null
 
         private fun normalizeSearchText(text: String): String =
             Normalizer.normalize(text.replace('ł', 'l').replace('Ł', 'L'), Normalizer.Form.NFD)
@@ -873,6 +878,20 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             }
 
             pendingStationId = stationId
+            context.startService(Intent(context, RadyjkoAutoService::class.java))
+        }
+
+        fun requestPlayFromSearch(
+            context: android.content.Context,
+            query: String?,
+            extras: Bundle?,
+        ) {
+            val service = instance
+            if (service != null) {
+                service.playFromSearchQuery(query, extras)
+                return
+            }
+            pendingSearch = query to extras
             context.startService(Intent(context, RadyjkoAutoService::class.java))
         }
 
