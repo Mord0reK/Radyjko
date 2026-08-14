@@ -72,6 +72,28 @@ jobs:
         working-directory: frontend
         run: bun run tauri android init
 
+      - name: Align generated Tauri Gradle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          android_dir="frontend/src-tauri/gen/android"
+
+          settings_script="$(find "$android_dir" -type f -name 'tauri.settings.gradle' -print -quit)"
+          build_script="$(find "$android_dir" -type f -name 'tauri.build.gradle.kts' -print -quit)"
+
+          if [[ -z "$settings_script" || -z "$build_script" ]]; then
+            echo "Tauri Gradle scripts were not generated" >&2
+            find "$android_dir" -maxdepth 4 -type f -print >&2
+            exit 1
+          fi
+
+          if [[ "$settings_script" != "$android_dir/tauri.settings.gradle" ]]; then
+            cp "$settings_script" "$android_dir/tauri.settings.gradle"
+          fi
+          if [[ "$build_script" != "$android_dir/app/tauri.build.gradle.kts" ]]; then
+            cp "$build_script" "$android_dir/app/tauri.build.gradle.kts"
+          fi
+
       - name: Run Android unit tests and Kotlin compilation
         working-directory: frontend/src-tauri/gen/android
         run: ./gradlew :app:testDebugUnitTest :app:compileDebugKotlin
