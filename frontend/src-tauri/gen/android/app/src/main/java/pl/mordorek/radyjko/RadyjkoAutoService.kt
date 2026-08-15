@@ -18,6 +18,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import android.support.v4.media.RatingCompat
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
@@ -410,23 +411,24 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
 
     private fun applyState() {
         val nowPlaying = RadyjkoAutoState.nowPlaying[RadyjkoAutoState.activeStationId]
-        val displayTitle = nowPlaying?.title?.takeIf { it.isNotBlank() } ?: RadyjkoAutoState.title
-        val displayArtist = nowPlaying?.artist?.takeIf { it.isNotBlank() } ?: RadyjkoAutoState.artist
-        val displayArtwork = nowPlaying?.artworkUrl?.takeIf { it.isNotBlank() } ?: RadyjkoAutoState.artworkUrl
-        val displayStation = RadyjkoAutoState.album
-        val displaySubtitle = displayArtist.takeIf { it.isNotBlank() } ?: displayStation
-        val displayDescription = displayStation.takeIf { displayArtist.isNotBlank() }
+        val trackTitle = nowPlaying?.title?.takeIf { it.isNotBlank() } ?: RadyjkoAutoState.title
+        val trackArtist = nowPlaying?.artist?.takeIf { it.isNotBlank() } ?: RadyjkoAutoState.artist
+        val displayArtwork = RadyjkoAutoState.artworkUrl
+        val displayStation = RadyjkoAutoState.album.takeIf { it.isNotBlank() } ?: "Radyjko"
+        val displayTrack = listOf(trackTitle, trackArtist)
+            .filter { it.isNotBlank() }
+            .joinToString(" • ")
         val rating = RatingCompat.newHeartRating(
             RadyjkoAutoState.activeStationId?.let { RadyjkoAutoState.favorites.contains(it) } == true,
         )
 
         val metadata = MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, displayTitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, displayTitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, displayArtist)
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, displayStation)
+                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, displayStation)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, displayTrack)
                 .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, displayStation)
-                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, displaySubtitle)
-                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, displayDescription)
+                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, displayTrack)
+                .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION, displayTrack)
                 .putRating(MediaMetadataCompat.METADATA_KEY_RATING, rating)
                 .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, displayArtwork)
                 .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, displayArtwork)
@@ -472,7 +474,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         mediaSession.setPlaybackState(
             playbackState.build(),
         )
-        updatePlaybackNotification(displayTitle, displaySubtitle)
+        updatePlaybackNotification(displayStation, displayTrack)
         RadyjkoAutoPlugin.triggerPlaybackStateChanged()
     }
 
@@ -502,8 +504,6 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
     }
 
     private fun updatePlaybackNotification(title: String, subtitle: String) {
-        if (RadyjkoAutoState.activeStationId == null) return
-
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
         val contentIntent = launchIntent?.let {
             PendingIntent.getActivity(
@@ -817,19 +817,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         }
 
         private fun stationArtworkUrl(shortName: String): String {
-            val extension = when (shortName) {
-                "meloradio",
-                "navidrome",
-                "radio-freee",
-                "radio-zet",
-                "radiozet-dance",
-                "spotify",
-                "voxfm-bestlista",
-                "voxfm" -> "png"
-                "radio-cmp" -> "jpg"
-                else -> "webp"
-            }
-            return "${BuildConfig.API_BASE_URL}/ikony/$shortName.$extension"
+            return "${BuildConfig.API_BASE_URL}/ikony/$shortName.webp"
         }
 
         private fun hasSameStationCatalog(
@@ -878,7 +866,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             }
 
             pendingStationId = stationId
-            context.startService(Intent(context, RadyjkoAutoService::class.java))
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, RadyjkoAutoService::class.java),
+            )
         }
 
         fun requestPlayFromSearch(
@@ -892,7 +883,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                 return
             }
             pendingSearch = query to extras
-            context.startService(Intent(context, RadyjkoAutoService::class.java))
+            ContextCompat.startForegroundService(
+                context,
+                Intent(context, RadyjkoAutoService::class.java),
+            )
         }
 
         fun requestPause() {

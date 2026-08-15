@@ -50,6 +50,13 @@ body {
 }
 
 .fade-in { animation: fadeIn 0.3s ease-out; }
+
+@keyframes updateIn {
+  from { opacity: 0; transform: translateY(-180%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-update-in { animation: updateIn 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .animate-eq > div { animation: pulse-eq 0.6s ease-in-out infinite; }

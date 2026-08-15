@@ -4,9 +4,12 @@ import android.app.Activity
 import android.content.Intent
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.TauriPlugin
@@ -14,6 +17,9 @@ import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import org.json.JSONArray
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
 
 @InvokeArg
 class AutoStateArgs {
@@ -55,6 +61,11 @@ class AutoSelectedStationArgs {
 @InvokeArg
 class AutoVolumeArgs {
     var volume: Double = 1.0
+}
+
+@InvokeArg
+class AndroidUpdateArgs {
+    var url: String = ""
 }
 
 @TauriPlugin
@@ -142,9 +153,82 @@ class RadyjkoAutoPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(payload)
     }
 
+    @Command
+    fun installApk(invoke: Invoke) {
+        val url = invoke.parseArgs(AndroidUpdateArgs::class.java).url
+        val parsedUrl = Uri.parse(url)
+        if (parsedUrl.scheme != "https" || parsedUrl.host != "github.com" ||
+            !parsedUrl.path.orEmpty().startsWith("/Mord0reK/Radyjko/releases/download/")) {
+            invoke.reject("Nieprawidłowy adres aktualizacji")
+            return
+        }
+
+        Thread {
+            try {
+                val request = Request.Builder().url(url).header("Accept", "application/octet-stream").build()
+                val response = OkHttpClient().newCall(request).execute()
+                if (!response.isSuccessful) throw IllegalStateException("Pobieranie APK nie powiodło się (${response.code})")
+
+                val body = response.body ?: throw IllegalStateException("Pobrany plik APK jest pusty")
+                if (body.contentLength() > MAX_APK_SIZE) throw IllegalStateException("Plik APK jest zbyt duży")
+
+                val updateDirectory = File(activity.cacheDir, "apk-updates").apply { mkdirs() }
+                val apkFile = File(updateDirectory, "radyjko-update.apk")
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                body.byteStream().use { input ->
+                    apkFile.outputStream().use { output ->
+                        var bytesRead = input.read(buffer)
+                        while (bytesRead >= 0) {
+                            if (bytesRead > 0) {
+                                output.write(buffer, 0, bytesRead)
+                                downloadedBytes += bytesRead
+                                triggerApkDownloadProgress(downloadedBytes, totalBytes, "downloading")
+                            }
+                            bytesRead = input.read(buffer)
+                        }
+                    }
+                }
+
+                activity.runOnUiThread {
+                    triggerApkDownloadProgress(downloadedBytes, totalBytes, "installing")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
+                        val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:${activity.packageName}")
+                        }
+                        activity.startActivity(settingsIntent)
+                        invoke.reject("Zezwól Radyjku na instalowanie aplikacji, a następnie spróbuj ponownie")
+                    } else {
+                        val apkUri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", apkFile)
+                        val installIntent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                            setDataAndType(apkUri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        activity.startActivity(installIntent)
+                        invoke.resolve()
+                    }
+                }
+            } catch (error: Exception) {
+                activity.runOnUiThread { invoke.reject(error.message ?: "Nie udało się pobrać APK") }
+            }
+        }.start()
+    }
+
     companion object {
+        private const val MAX_APK_SIZE = 100L * 1024L * 1024L
         private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 9502
         private var instance: RadyjkoAutoPlugin? = null
+
+        private fun triggerApkDownloadProgress(downloaded: Long, total: Long, phase: String) {
+            instance?.trigger("apkDownloadProgress", JSObject().apply {
+                put("downloaded", downloaded)
+                put("total", total)
+                put("percent", if (total > 0) (downloaded * 100 / total).toInt() else 0)
+                put("phase", phase)
+            })
+        }
 
         fun triggerFavoritesChanged(favorites: List<Long>) {
             instance?.trigger("favoritesChanged", JSObject().apply {

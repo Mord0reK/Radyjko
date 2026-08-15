@@ -202,6 +202,27 @@ fn load_android_auto_favorites(app: tauri::AppHandle) -> Result<AndroidAutoFavor
     }
 }
 
+#[derive(serde::Serialize, Deserialize)]
+struct AndroidUpdateArgs {
+    url: String,
+}
+
+#[tauri::command]
+fn install_android_update(args: AndroidUpdateArgs, app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    return app
+        .state::<AndroidAuto>()
+        .0
+        .run_mobile_plugin("installApk", args)
+        .map_err(|error| error.to_string());
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (args, app);
+        Err("Instalowanie APK jest dostępne tylko na Androidzie".to_string())
+    }
+}
+
 #[derive(Default)]
 struct DiscordPresence(Mutex<Option<DiscordIpcClient>>);
 
@@ -323,7 +344,8 @@ pub fn run() {
             set_android_auto_volume,
             get_android_auto_playback_state,
             sync_android_auto_favorites,
-            load_android_auto_favorites
+            load_android_auto_favorites,
+            install_android_update
         ])
         .run(context)
         .expect("error while running Radyjko desktop application");

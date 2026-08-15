@@ -19,6 +19,24 @@ export interface LatestRelease {
   assets: ReleaseAsset[];
 }
 
+function versionParts(version: string): number[] {
+  const match = version.trim().replace(/^v/i, "").match(/^(\d+(?:\.\d+)*)/);
+  return match ? match[1].split(".").map(Number) : [];
+}
+
+export function compareVersions(left: string, right: string): number {
+  const leftParts = versionParts(left);
+  const rightParts = versionParts(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (difference !== 0) return difference > 0 ? 1 : -1;
+  }
+
+  return 0;
+}
+
 interface GitHubAsset {
   name?: unknown;
   browser_download_url?: unknown;
@@ -115,10 +133,11 @@ function cacheRelease(release: LatestRelease): void {
 }
 
 export async function fetchLatestRelease(forceRefresh = false): Promise<LatestRelease> {
+  if (releaseRequest) return releaseRequest;
+
   if (!forceRefresh) {
     const cached = readCachedRelease();
     if (cached) return cached;
-    if (releaseRequest) return releaseRequest;
   }
 
   releaseRequest = fetch(RELEASE_API_URL, {

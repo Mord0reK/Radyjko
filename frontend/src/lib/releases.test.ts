@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatFileSize, parseLatestRelease } from "./releases";
+import { compareVersions, formatFileSize, parseLatestRelease } from "./releases";
+
+test("compares release versions numerically", () => {
+  assert.equal(compareVersions("v3.10.0", "3.9.9"), 1);
+  assert.equal(compareVersions("3.1", "3.1.0"), 0);
+  assert.equal(compareVersions("3.0.9", "3.1.0"), -1);
+});
 
 test("maps supported assets from the latest GitHub release", () => {
   const release = parseLatestRelease({
@@ -25,7 +31,7 @@ test("maps supported assets from the latest GitHub release", () => {
     ],
   });
 
-  assert.equal(release.version, "3.1.7");
+  assert.equal(release.version, "3.1.5");
   assert.deepEqual(release.assets.map((asset) => asset.kind), [
     "android-apk",
     "windows-exe",
