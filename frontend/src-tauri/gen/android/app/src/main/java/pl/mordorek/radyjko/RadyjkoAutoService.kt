@@ -158,6 +158,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         sessionToken = mediaSession.sessionToken
         RadyjkoAutoState.stations = loadCachedStations(applicationContext)
         RadyjkoAutoState.favorites = loadFavorites(applicationContext).toSet()
+        RadyjkoAutoState.activeStationId = loadLastStationId(applicationContext)
         applyQueue()
         applyState()
         ensureStationsLoaded()
@@ -165,10 +166,12 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             player.volume = it
             pendingVolume = null
         }
-        pendingStationId?.let {
-            pendingStationId = null
+        val requestedStationId = pendingStationId
+        pendingStationId = null
+        requestedStationId?.let {
             playStation(it)
         }
+        if (requestedStationId == null && pendingSearch == null) restoreLastStation()
         pendingSearch?.let { (query, extras) ->
             pendingSearch = null
             playFromSearchQuery(query, extras)
@@ -250,25 +253,54 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         result.sendResult(items)
     }
 
+    override fun onSearch(
+        query: String,
+        extras: Bundle?,
+        result: Result<MutableList<MediaBrowserCompat.MediaItem>>,
+    ) {
+        val searchQuery = extractSearchQuery(query, extras)
+        fun sendSearchResult() {
+            val station = searchQuery?.let { findStationByQuery(it, RadyjkoAutoState.stations) }
+            result.sendResult(station?.let { mutableListOf(createStationItem(it, PlaybackScope.ALL)) }
+                ?: mutableListOf())
+        }
+
+        if (RadyjkoAutoState.stations.isEmpty()) {
+            ensureStationsLoaded()
+            result.detach()
+            serviceScope.launch {
+                stationsLoadJob?.join()
+                sendSearchResult()
+            }
+            return
+        }
+        sendSearchResult()
+    }
+
     private fun createStationItems(scope: PlaybackScope): MutableList<MediaBrowserCompat.MediaItem> =
-        stationsForScope(scope).map { station ->
-            val nowPlaying = RadyjkoAutoState.nowPlaying[station.id]
-            val description = android.support.v4.media.MediaDescriptionCompat.Builder()
-                .setMediaId(mediaId(scope, station.id))
-                .setTitle(station.name)
-            nowPlaying?.let { track ->
-                if (track.title.isNotBlank()) {
-                    description.setSubtitle("${track.artist} — ${track.title}")
-                }
+        stationsForScope(scope).map { station -> createStationItem(station, scope) }.toMutableList()
+
+    private fun createStationItem(
+        station: AutoStationArgs,
+        scope: PlaybackScope,
+    ): MediaBrowserCompat.MediaItem {
+        val nowPlaying = RadyjkoAutoState.nowPlaying[station.id]
+        val description = android.support.v4.media.MediaDescriptionCompat.Builder()
+            .setMediaId(mediaId(scope, station.id))
+            .setTitle(station.name)
+        nowPlaying?.let { track ->
+            if (track.title.isNotBlank()) {
+                description.setSubtitle("${track.artist} — ${track.title}")
             }
-            if (station.artworkUrl.isNotBlank()) {
-                description.setIconUri(Uri.parse(station.artworkUrl))
-            }
-            MediaBrowserCompat.MediaItem(
-                description.build(),
-                MediaBrowserCompat.MediaItem.FLAG_PLAYABLE,
-            )
-        }.toMutableList()
+        }
+        if (station.artworkUrl.isNotBlank()) {
+            description.setIconUri(Uri.parse(station.artworkUrl))
+        }
+        return MediaBrowserCompat.MediaItem(
+            description.build(),
+            MediaBrowserCompat.MediaItem.FLAG_PLAYABLE,
+        )
+    }
 
     private fun ensureStationsLoaded() {
         if (RadyjkoAutoState.stations.isNotEmpty() && RadyjkoAutoState.stations.all { it.url.isNotBlank() }) return
@@ -278,6 +310,21 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             val stations = withContext(Dispatchers.IO) { fetchStations() }
             if (stations.isNotEmpty()) {
                 updateStations(applicationContext, stations)
+            }
+        }
+    }
+
+    private fun restoreLastStation() {
+        val stationId = RadyjkoAutoState.activeStationId ?: return
+        if (RadyjkoAutoState.stations.any { it.id == stationId }) {
+            playStation(stationId)
+            return
+        }
+
+        serviceScope.launch {
+            stationsLoadJob?.join()
+            if (RadyjkoAutoState.stations.any { it.id == stationId }) {
+                playStation(stationId)
             }
         }
     }
@@ -346,6 +393,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             station.url
         }
         RadyjkoAutoState.activeStationId = station.id
+        persistLastStation(applicationContext, station.id)
         RadyjkoAutoState.playbackError = null
         RadyjkoAutoState.title = station.name
         RadyjkoAutoState.artist = ""
@@ -392,6 +440,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         )
         player.prepare()
         player.play()
+        applyState()
     }
 
     private fun pausePlayback() {
@@ -439,10 +488,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         }
         mediaSession.setMetadata(metadata.build())
 
-        val state = if (RadyjkoAutoState.isPlaying) {
-            PlaybackStateCompat.STATE_PLAYING
-        } else {
-            PlaybackStateCompat.STATE_PAUSED
+        val state = when {
+            RadyjkoAutoState.isPlaying -> PlaybackStateCompat.STATE_PLAYING
+            player.playWhenReady && player.currentMediaItem != null -> PlaybackStateCompat.STATE_BUFFERING
+            else -> PlaybackStateCompat.STATE_PAUSED
         }
         val actions = PlaybackStateCompat.ACTION_PLAY or
             PlaybackStateCompat.ACTION_PAUSE or
@@ -737,6 +786,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         private const val PREFERENCES_NAME = "radyjko_android_auto"
         private const val STATIONS_PREFERENCE_KEY = "stations"
         private const val FAVORITES_PREFERENCE_KEY = "favorites"
+        private const val LAST_STATION_PREFERENCE_KEY = "last_station_id"
         private const val NOTIFICATION_CHANNEL_ID = "radyjko.playback"
         private const val NOTIFICATION_ID = 9501
         private const val IDLE_SHUTDOWN_DELAY_MS = 60_000L
@@ -766,6 +816,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         fun extractSearchQuery(query: String?, extras: Bundle?): String? {
             query?.takeIf { it.isNotBlank() }?.let { return it }
             extras?.getString(SearchManager.QUERY)?.takeIf { it.isNotBlank() }?.let { return it }
+            extras?.getString(MediaStore.EXTRA_MEDIA_RADIO_CHANNEL)?.takeIf { it.isNotBlank() }?.let { return it }
             extras?.getString(MediaStore.EXTRA_MEDIA_TITLE)?.takeIf { it.isNotBlank() }?.let { return it }
             extras?.getString(MediaStore.EXTRA_MEDIA_ARTIST)?.takeIf { it.isNotBlank() }?.let { return it }
             extras?.getString(MediaStore.EXTRA_MEDIA_ALBUM)?.takeIf { it.isNotBlank() }?.let { return it }
@@ -788,11 +839,21 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
                 .split(" ").filter { it.length > 1 }
             if (queryTokens.isEmpty()) return null
 
-            return stations.firstOrNull { station ->
-                val searchable = "${normalizeSearchText(station.name)} " +
-                    normalizeSearchText(station.shortName.replace('-', ' '))
-                queryTokens.all { token -> searchable.contains(token) }
-            }
+            fun tokenMatches(queryToken: String, stationToken: String): Boolean =
+                queryToken == stationToken || queryToken.startsWith(stationToken) ||
+                    stationToken.startsWith(queryToken)
+
+            return stations.mapNotNull { station ->
+                val searchableTokens = (
+                    "${normalizeSearchText(station.name)} " +
+                        normalizeSearchText(station.shortName.replace('-', ' '))
+                    ).split(" ").filter { it.length > 1 }.distinct()
+                val matchedTokens = queryTokens.count { queryToken ->
+                    searchableTokens.any { stationToken -> tokenMatches(queryToken, stationToken) }
+                }
+                if (matchedTokens == queryTokens.size) station to searchableTokens.size else null
+            }.maxByOrNull { (_, stationTokenCount) -> stationTokenCount }
+                ?.first
         }
 
         private fun scopeForParent(parentId: String): PlaybackScope =
@@ -820,6 +881,18 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             return "${BuildConfig.API_BASE_URL}/ikony/$shortName.webp"
         }
 
+        private fun loadLastStationId(context: android.content.Context): Long? =
+            context.getSharedPreferences(PREFERENCES_NAME, android.content.Context.MODE_PRIVATE)
+                .getLong(LAST_STATION_PREFERENCE_KEY, -1L)
+                .takeIf { it >= 0L }
+
+        private fun persistLastStation(context: android.content.Context, stationId: Long) {
+            context.getSharedPreferences(PREFERENCES_NAME, android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putLong(LAST_STATION_PREFERENCE_KEY, stationId)
+                .apply()
+        }
+
         private fun hasSameStationCatalog(
             current: List<AutoStationArgs>,
             incoming: List<AutoStationArgs>,
@@ -842,7 +915,10 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             state.artist?.let { RadyjkoAutoState.artist = it }
             state.album?.let { RadyjkoAutoState.album = it }
             state.artworkUrl?.let { RadyjkoAutoState.artworkUrl = it }
-            state.stationId?.let { RadyjkoAutoState.activeStationId = it }
+            state.stationId?.let {
+                RadyjkoAutoState.activeStationId = it
+                instance?.let { service -> persistLastStation(service.applicationContext, it) }
+            }
             state.artworkUrl?.let { instance?.loadArtwork(it) }
             instance?.applyState()
         }
