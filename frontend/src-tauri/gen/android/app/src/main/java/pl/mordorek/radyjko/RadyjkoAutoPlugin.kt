@@ -165,7 +165,10 @@ class RadyjkoAutoPlugin(private val activity: Activity) : Plugin(activity) {
 
         Thread {
             try {
-                val request = Request.Builder().url(url).header("Accept", "application/octet-stream").build()
+                val request = Request.Builder().url(url)
+                    .header("Accept", "application/octet-stream")
+                    .header("User-Agent", "Radyjko-Android-${BuildConfig.VERSION_NAME}")
+                    .build()
                 val response = OkHttpClient().newCall(request).execute()
                 if (!response.isSuccessful) throw IllegalStateException("Pobieranie APK nie powiodło się (${response.code})")
 
