@@ -78,6 +78,21 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
     private var stationsLoadJob: Job? = null
     private var nowPlayingWs: WebSocket? = null
     private var nowPlayingClient: OkHttpClient? = null
+
+    private val httpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            chain.proceed(
+                chain.request().newBuilder()
+                    .header("User-Agent", "Radyjko-Android-${BuildConfig.VERSION_NAME}")
+                    .build(),
+            )
+        }
+        .build()
+    private val artworkImageLoader by lazy {
+        ImageLoader.Builder(this)
+            .okHttpClient(httpClient)
+            .build()
+    }
     private var nowPlayingReconnectJob: Job? = null
     private var nowPlayingReconnectAttempt = 0
     private var shutdownJob: Job? = null
@@ -647,7 +662,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
         serviceScope.launch {
             val request = ImageRequest.Builder(this@RadyjkoAutoService)
                 .data(url).allowHardware(false).size(512).build()
-            val result = ImageLoader(this@RadyjkoAutoService).execute(request)
+            val result = artworkImageLoader.execute(request)
             artworkBitmap = if (result is SuccessResult) {
                 (result.drawable as? BitmapDrawable)?.bitmap
             } else null
@@ -1137,6 +1152,7 @@ class RadyjkoAutoService : MediaBrowserServiceCompat() {
             return try {
                 connection.connectTimeout = 10_000
                 connection.readTimeout = 10_000
+                connection.setRequestProperty("User-Agent", "Radyjko-Android-${BuildConfig.VERSION_NAME}")
                 if (connection.responseCode !in 200..299) return null
                 JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
                     .optString("url")
