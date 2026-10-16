@@ -450,14 +450,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path icons
           python -c "
           from PIL import Image
-          
+
           src = Image.open('../public/icon.png').convert('RGBA')
           size = max(src.size)
           square = Image.new('RGBA', (size, size), (0, 0, 0, 0))
           offset = ((size - src.width) // 2, (size - src.height) // 2)
           square.paste(src, offset)
           square.save('icons/icon.png')
-          
+
           square.save(
               'icons/icon.ico',
               format='ICO',
@@ -527,7 +527,7 @@ jobs:
           java-version: "21"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
