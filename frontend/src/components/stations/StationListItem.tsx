@@ -44,9 +44,9 @@ export function StationListItem({
           {isPlaying && (
             <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
               <div className="flex gap-0.5 items-end h-3">
-                <div className="w-0.5 bg-green-500 animate-[music-bar_0.6s_ease-in-out_infinite]" />
-                <div className="w-0.5 bg-green-500 animate-[music-bar_0.9s_ease-in-out_infinite]" />
-                <div className="w-0.5 bg-green-500 animate-[music-bar_0.7s_ease-in-out_infinite]" />
+                <div className="w-0.5 bg-green-500 h-full origin-bottom animate-[music-bar_0.6s_ease-in-out_infinite]" />
+                <div className="w-0.5 bg-green-500 h-full origin-bottom animate-[music-bar_0.9s_ease-in-out_infinite]" />
+                <div className="w-0.5 bg-green-500 h-full origin-bottom animate-[music-bar_0.7s_ease-in-out_infinite]" />
               </div>
             </div>
           )}

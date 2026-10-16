@@ -234,10 +234,10 @@ export function StationView({
                     </div>
                       <div className="p-4 flex items-center gap-4 bg-green-900/20">
                         <div className="flex items-end gap-1 h-4 animate-eq ml-auto">
-                          <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-1/2" />
-                          <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-3/4" />
-                          <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-1/2" />
-                          <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-full" />
+                          <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
+                          <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
+                          <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
+                          <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
                         </div>
                         <div className={`w-10 h-10 rounded ${color} shrink-0 flex items-center justify-center text-white text-xs font-bold shadow overflow-hidden relative`}>
                           <img src={getIconPath(station.shortName)} className="absolute inset-0 h-full w-full object-cover" alt="" loading="lazy" decoding="async" />

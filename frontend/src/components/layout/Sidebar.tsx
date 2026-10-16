@@ -51,10 +51,10 @@ function StationItem({ station, isActive, isFav, isPlaying, nowPlayingText, onPl
 
       {isActive && isPlaying && (
         <div className="flex items-end gap-1 h-4 animate-eq ml-auto">
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-1/2" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-3/4" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-1/3" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
         </div>
       )}
     </button>

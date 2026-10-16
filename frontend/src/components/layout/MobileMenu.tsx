@@ -11,11 +11,12 @@ interface MobileStationItemProps {
   isActive: boolean;
   isFav: boolean;
   isPlaying: boolean;
+  isOpen: boolean;
   nowPlayingText: string;
   onSelect: () => void;
 }
 
-function MobileStationItem({ station, isActive, isFav, isPlaying, nowPlayingText, onSelect }: MobileStationItemProps) {
+function MobileStationItem({ station, isActive, isFav, isPlaying, isOpen, nowPlayingText, onSelect }: MobileStationItemProps) {
   return (
     <button
       onClick={onSelect}
@@ -43,12 +44,12 @@ function MobileStationItem({ station, isActive, isFav, isPlaying, nowPlayingText
 
       {isFav && <Heart className="w-3 h-3 text-red-400 fill-red-400 shrink-0 ml-auto" />}
 
-      {isActive && isPlaying && (
+      {isActive && isPlaying && isOpen && (
         <div className="flex items-end gap-1 h-4 animate-eq ml-auto">
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-1/2" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-3/4" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-1/3" />
-          <div className="w-1 bg-green-500 rounded-t-sm eq-bar h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
+          <div className="w-1 bg-green-500 rounded-t-sm h-full" />
         </div>
       )}
     </button>
@@ -175,6 +176,7 @@ export function MobileMenu() {
                     isActive={station.id === currentStationId}
                     isFav
                     isPlaying={isPlaying}
+                    isOpen={isOpen}
                     nowPlayingText={getNowPlayingText(station)}
                     onSelect={() => handleStationSelect(station)}
                   />
@@ -194,6 +196,7 @@ export function MobileMenu() {
                     isActive={station.id === currentStationId}
                     isFav={favorites.includes(station.id)}
                     isPlaying={isPlaying}
+                    isOpen={isOpen}
                     nowPlayingText={getNowPlayingText(station)}
                     onSelect={() => handleStationSelect(station)}
                   />

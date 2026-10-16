@@ -344,9 +344,9 @@ export function RadioPartyScheduleWidget({
 
                   {isCurrent && isPlaying && (
                     <div className="flex items-end gap-1 h-4 animate-eq flex-shrink-0">
-                      <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-1/2" />
-                      <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-3/4" />
-                      <div className="w-0.5 bg-green-500 rounded-t-sm eq-bar h-1/2" />
+                      <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
+                      <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
+                      <div className="w-0.5 bg-green-500 rounded-t-sm h-full" />
                     </div>
                   )}
                 </div>
